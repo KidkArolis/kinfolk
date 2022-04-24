@@ -1,0 +1,49 @@
+html,
+body {
+  padding: 0;
+  margin: 0;
+  font-family: sans-serif;
+}
+
+nav {
+  border-bottom: 1px solid #eee;
+  margin-bottom: 20px;
+  padding: 20px;
+}
+
+nav a {
+  padding: 8px 16px;
+  background: #f2f2f2;
+  border-radius: 4px;
+  margin: 0 4px;
+  text-decoration: none;
+}
+
+nav a:hover {
+  background: #e2e2e2;
+}
+
+nav a[aria-current='page'] {
+  background: orange;
+}
+
+.Chrome-container {
+  padding: 20px;
+}
+
+.Chrome-content {
+  padding: 20px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.RouteDetails {
+  margin: 20px;
+}
+
+.Toys {
+  padding: 20px 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-gap: 8px;
+  max-width: 320px;
+}

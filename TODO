@@ -1,0 +1,14 @@
+API
+- [ ] atom
+- [ ] selector
+- [ ] useSelector
+- [ ] selectorFamily
+
+Other
+- [ ] cleanup atom state when unmounting
+- [ ] can we make selector recomputes lazy, mark as dirty, only read if needed?
+- [ ] scoped providers or creatable providers
+- [ ] return equality.. useValue, useValueList, useValueMap
+- [ ] return equality.. selector, selectorList, selectorMap
+- [x] check the render order, see if possible to avoid nested re-re-renders
+- [ ] tests
