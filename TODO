@@ -1,24 +1,32 @@
-API
-- [ ] atom
-- [ ] selector
+Primitives
+- [x] atom
+- [x] selector
 - [ ] selectorFamily
-- [ ] reducer(atom, reducer)
+- [x] reducer(atom, reducer)
 
-- [ ] useValue(atom|selector)
+Hooks
+- [x] Provider
+- [x] useValue(atom|selector)
 - [ ] useReducer(atom, reducer)
-- [ ] useSet(atom)
+- [x] useSet(atom)
 - [ ] useSelector(atom|selector)
 - [ ] useSelectorFamily(atom|selector)
 
+Memoisation shortcuts
+- [ ] selectorList
+- [ ] selectorMap
+- [ ] selectorFamilyList
+- [ ] selectorFamilyMap
 - [ ] useSelectorList
 - [ ] useSelectorMap
-- [ ] use
 
 Other
-- [ ] remove useAtom
-- [ ] cleanup atom state when unmounting
-- [ ] can we make selector recomputes lazy, mark as dirty, only read if needed?
-- [ ] scoped providers or creatable providers
-- [ ] return equality.. selector, selectorList, selectorMap
-- [x] check the render order, see if possible to avoid nested re-re-renders
 - [x] test setup
+- [x] check the render order, see if possible to avoid nested re-re-renders
+- [ ] remove useAtom once again, just too much and confusion between atoms / selectors..
+- [ ] cleanup atom state when unmounting
+- [ ] scoped providers or creatable providers
+- [ ] selector 2nd arg for equality comparison
+
+V2
+- [ ] can we make selector recomputes lazy, mark as dirty, only read if needed?
