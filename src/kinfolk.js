@@ -98,7 +98,11 @@ function mount(store, atomRef) {
   }
 }
 
-export function useValue(atomRef) {
+export function useAtom(atomRef) {
+  return [useAtomValue(atomRef), useAtomSet(atomRef)]
+}
+
+export function useAtomValue(atomRef) {
   const { store } = useContext(AtomContext)
 
   mount(store, atomRef)
@@ -174,7 +178,7 @@ function notify(store, atomRef) {
   atom.dependents.forEach((d) => notify(store, d.atomRef))
 }
 
-export function useSet(atomRef) {
+export function useAtomSet(atomRef) {
   const { store } = useContext(AtomContext)
 
   return (state) => {
@@ -194,7 +198,7 @@ export function useSet(atomRef) {
   }
 }
 
-export function useSelector(selectorFn, deps = []) {
+export function useAtomSelector(selectorFn, deps = []) {
   const selected = useMemo(() => selector(selectorFn), deps)
   return useValue(selected)
 }

@@ -1,18 +1,33 @@
 {
-  "name": "oorb",
+  "name": "kinfolk",
   "version": "1.0.0",
   "description": "Atoms and selectors for React",
-  "main": "index.js",
+  "main": "src/index.js",
   "directories": {
     "src": "src"
   },
   "scripts": {
-    "test": "ava"
+    "test": "ava",
+    "coverage": "nyc --reporter html ava"
   },
   "author": "Karolis Narkevicius",
   "license": "ISC",
   "devDependencies": {
+    "@swc/core": "^1.2.172",
+    "@swc/register": "^0.1.10",
+    "@testing-library/react": "^13.1.1",
+    "ava": "^4.2.0",
     "healthier": "^5.0.1",
+    "jsdom": "^19.0.0",
+    "nyc": "^15.1.0",
     "prettier": "^2.6.2"
+  },
+  "ava": {
+    "files": [
+      "test/*.test.js"
+    ],
+    "require": [
+      "@swc/register"
+    ]
   }
 }
