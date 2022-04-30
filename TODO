@@ -27,3 +27,4 @@ Other
 - [ ] scoped providers or creatable providers
 - [ ] selector 2nd arg for equality comparison
 - [ ] can we make selector recomputes lazy, mark as dirty, only read if needed?
+- [ ] test mounting same atom many times

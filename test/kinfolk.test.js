@@ -2,7 +2,7 @@ import test from 'ava'
 import { JSDOM } from 'jsdom'
 import { render, fireEvent, waitFor, screen } from '@testing-library/react'
 import React, { useState, useEffect } from 'react'
-import { Provider, atom, selector, useValue, useSet } from '../src/kinfolk'
+import { Provider, atom, selector, useValue, useSet, useSelector } from '../src/kinfolk'
 
 const dom = new JSDOM('<!doctype html><div id="root"></div>')
 global.window = dom.window
@@ -107,6 +107,7 @@ test('unmounting unused atoms', async (t) => {
     const [step, setStep] = useState(0)
     return (
       <div>
+        <div className='step'>{step}</div>
         <button onClick={() => setStep((s) => s + 1)}>Next step</button>
         {step <= 0 && <Counter id='1' atom={counter1} />}
         {step <= 1 && <Counter id='2' atom={counter2} />}
@@ -126,6 +127,7 @@ test('unmounting unused atoms', async (t) => {
 
   const mounted = () => getState().map((a) => a.label)
 
+  t.is(container.querySelector('.step').innerHTML, '0')
   t.is(container.querySelector('.content-1').innerHTML, '1')
   t.is(container.querySelector('.content-2').innerHTML, '2')
   t.is(container.querySelector('.content-3').innerHTML, '2')
@@ -133,6 +135,7 @@ test('unmounting unused atoms', async (t) => {
 
   fireEvent.click(container.querySelector('button'))
 
+  t.is(container.querySelector('.step').innerHTML, '1')
   t.is(container.querySelector('.content-1'), null)
   t.is(container.querySelector('.content-2').innerHTML, '2')
   t.is(container.querySelector('.content-3').innerHTML, '2')
@@ -140,6 +143,7 @@ test('unmounting unused atoms', async (t) => {
 
   fireEvent.click(container.querySelector('button'))
 
+  t.is(container.querySelector('.step').innerHTML, '2')
   t.is(container.querySelector('.content-1'), null)
   t.is(container.querySelector('.content-2'), null)
   t.is(container.querySelector('.content-3').innerHTML, '2')
@@ -147,6 +151,7 @@ test('unmounting unused atoms', async (t) => {
 
   fireEvent.click(container.querySelector('button'))
 
+  t.is(container.querySelector('.step').innerHTML, '3')
   t.is(container.querySelector('.content-1'), null)
   t.is(container.querySelector('.content-2'), null)
   t.is(container.querySelector('.content-3'), null)
@@ -161,4 +166,41 @@ test('unmounting unused atoms', async (t) => {
   t.deepEqual(mounted(), ['double', 'counter1'])
 })
 
-// TODO - mount same shiz multiple timesos
+test('inline selector', async (t) => {
+  const counter = atom(2, { label: 'counter' })
+
+  function App() {
+    const [multiplier, setMultiplier] = useState(2)
+    return (
+      <div>
+        <button onClick={() => setMultiplier((m) => m + 1)}>Increment multiplier</button>
+        <Content multiplier={multiplier} />
+      </div>
+    )
+  }
+
+  function Content({ multiplier }) {
+    const val1 = useSelector((get) => get(counter) * multiplier, [multiplier], `multiplier-${multiplier}`)
+
+    return (
+      <div>
+        <div className='content-1'>{val1}</div>
+      </div>
+    )
+  }
+
+  let store, getState
+  const { container } = render(
+    <Provider onMount={(store_, getState_) => ((store = store_), (getState = getState_))}>
+      <App />
+    </Provider>
+  )
+
+  const mounted = () => getState().map((a) => a.label)
+  t.is(container.querySelector('.content-1').innerHTML, '4')
+  t.deepEqual(mounted(), ['multiplier-2', 'counter'])
+
+  fireEvent.click(container.querySelector('button'))
+  t.is(container.querySelector('.content-1').innerHTML, '6')
+  t.deepEqual(mounted(), ['counter', 'multiplier-3'])
+})

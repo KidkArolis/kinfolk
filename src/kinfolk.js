@@ -149,8 +149,12 @@ function getter(store, atomRef) {
   for (const upstreamAtomRef of atom.dependencies) {
     const upstreamAtom = store.get(upstreamAtomRef)
     upstreamAtom.dependents = upstreamAtom.dependents.filter((dependent) => {
-      dependent.count -= 1
-      return dependent.count > 0
+      if (dependent.atomRef !== atomRef) {
+        return true
+      } else {
+        dependent.count -= 1
+        return dependent.count > 0
+      }
     })
   }
   atom.dependencies = []
@@ -209,7 +213,7 @@ export function useValue(atomRef) {
     return () => {
       unmount(store, atomRef)
     }
-  }, [])
+  }, [atomRef])
 
   return useSyncExternalStore(sub, getSnapshot)
 }
@@ -225,7 +229,7 @@ export function useSet(atomRef) {
     return () => {
       unmount(store, atomRef)
     }
-  }, [])
+  }, [atomRef])
 
   return (state) => {
     const atom = store.get(atomRef)
@@ -247,9 +251,18 @@ export function useSet(atomRef) {
 /**
  * Hook to create an inline selector
  */
-export function useSelector(selectorFn, deps = []) {
-  const selected = useMemo(() => selector(selectorFn), deps)
-  return useValue(selected)
+export function useSelector(selectorFn, deps, label) {
+  const [initialised, setInitialised] = useState(false)
+  const [sel, setSelector] = useState(() => selector(selectorFn, { label }))
+
+  useEffect(() => {
+    if (initialised) {
+      setSelector(selector(selectorFn, { label }))
+    }
+    setInitialised(true)
+  }, deps)
+
+  return useValue(sel)
 }
 
 /**
