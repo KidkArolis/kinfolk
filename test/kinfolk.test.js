@@ -1,8 +1,18 @@
 import test from 'ava'
 import { JSDOM } from 'jsdom'
 import { render, fireEvent, waitFor, screen } from '@testing-library/react'
-import React, { useState, useEffect } from 'react'
-import { Provider, atom, selector, useValue, useSet, useSelector } from '../src/kinfolk'
+import React, { useState, useEffect, useRef } from 'react'
+import {
+  Provider,
+  atom,
+  selector,
+  useValue,
+  useSet,
+  useSelector,
+  useSelectorList,
+  useSelectorMap,
+  shallowMapEquals,
+} from '../src/kinfolk'
 
 const dom = new JSDOM('<!doctype html><div id="root"></div>')
 global.window = dom.window
@@ -203,4 +213,301 @@ test('inline selector', async (t) => {
   fireEvent.click(container.querySelector('button'))
   t.is(container.querySelector('.content-1').innerHTML, '6')
   t.deepEqual(mounted(), ['counter', 'multiplier-3'])
+})
+
+test('selector that returns an object', async (t) => {
+  let computes = { combo: 0, derived: 0 }
+
+  const counter = atom(21, { label: 'counter' })
+  const unrelated = atom('unrelated', { label: 'unrelated' })
+  const combo = selector(
+    (get) => {
+      computes.combo += 1
+      return {
+        double: get(counter) * 2,
+        triple: get(counter) * 3,
+        other: get(unrelated) !== 'never',
+      }
+    },
+    { label: 'combo', equal: shallowMapEquals }
+  )
+  const derived = selector(
+    (get) => {
+      computes.derived += 1
+      return get(combo)
+    },
+    { label: 'derived' }
+  )
+
+  function App() {
+    const [step, setStep] = useState(0)
+    const setUnrelated = useSet(unrelated)
+    const val = useValue(derived)
+
+    useEffect(() => {
+      setUnrelated(`unrelated-${step}`)
+    }, [step])
+
+    return (
+      <>
+        <button onClick={() => setStep((s) => s + 1)}>Next step</button>
+        <div className='content'>
+          {val.double} / {val.triple}
+        </div>
+      </>
+    )
+  }
+
+  const { container } = render(
+    <Provider>
+      <App />
+    </Provider>
+  )
+
+  t.is(container.querySelector('.content').innerHTML, '42 / 63')
+  t.is(computes.combo, 2)
+  t.is(computes.derived, 1)
+
+  fireEvent.click(container.querySelector('button'))
+  t.is(container.querySelector('.content').innerHTML, '42 / 63')
+  t.is(computes.combo, 3)
+  t.is(computes.derived, 1)
+})
+
+test('useSelector for reading data cache allows optimal re-renders', async (t) => {
+  const cache = atom(
+    {
+      items: {
+        1: { id: 1, name: 'foo' },
+        2: { id: 2, name: 'bar' },
+      },
+    },
+    { label: 'cache' }
+  )
+
+  function App() {
+    return (
+      <>
+        <Button />
+        <Item id={1} />
+        <Item id={2} />
+      </>
+    )
+  }
+
+  function Button() {
+    const [step, setStep] = useState(0)
+    const setCache = useSet(cache)
+
+    useEffect(() => {
+      const update = () =>
+        setCache((cache) => {
+          return {
+            ...cache,
+            items: {
+              ...cache.items,
+              2: { id: 2, name: `bar-${step}` },
+            },
+          }
+        })
+      // updates are batched!
+      update()
+      update()
+      update()
+    }, [step])
+
+    return <button onClick={() => setStep((s) => s + 1)}>Next step</button>
+  }
+
+  function Item({ id }) {
+    const renders = useRef(0)
+    renders.current += 1
+
+    const item = useSelector((get) => get(cache).items[id], [id])
+
+    return (
+      <div className={`item-${id}`}>
+        {item.name}: {renders.current}
+      </div>
+    )
+  }
+
+  const { container } = render(
+    <Provider>
+      <App />
+    </Provider>
+  )
+
+  t.is(container.querySelector('.item-1').innerHTML, 'foo: 1')
+  t.is(container.querySelector('.item-2').innerHTML, 'bar-0: 2')
+
+  fireEvent.click(container.querySelector('button'))
+
+  t.is(container.querySelector('.item-1').innerHTML, 'foo: 1')
+  t.is(container.querySelector('.item-2').innerHTML, 'bar-1: 3')
+
+  fireEvent.click(container.querySelector('button'))
+
+  t.is(container.querySelector('.item-1').innerHTML, 'foo: 1')
+  t.is(container.querySelector('.item-2').innerHTML, 'bar-2: 4')
+})
+
+test('useSelectorList compares resulting list shallowly', async (t) => {
+  const counter = atom({ count: 0, unrelated: 0 }, { label: 'cache' })
+
+  function App() {
+    return (
+      <>
+        <Button name='count' />
+        <Button name='unrelated' />
+        <Item id={1} />
+        <Item id={2} />
+      </>
+    )
+  }
+
+  function Button({ name }) {
+    const setCounter = useSet(counter)
+    return (
+      <button className={`button-${name}`} onClick={() => setCounter((s) => ({ ...s, [name]: s[name] + 1 }))}>
+        Next step
+      </button>
+    )
+  }
+
+  function Item({ id }) {
+    const renders = useRef(0)
+    renders.current += 1
+
+    const items = useSelectorList(
+      (get) => {
+        if (id === 1) {
+          return [1, 2, 3]
+        } else {
+          return [get(counter).count, get(counter).count, get(counter).count]
+        }
+      },
+      [id]
+    )
+
+    return (
+      <div className={`item-${id}`}>
+        {items.join(',')}: {renders.current}
+      </div>
+    )
+  }
+
+  const { container } = render(
+    <Provider>
+      <App />
+    </Provider>
+  )
+
+  t.is(container.querySelector('.item-1').innerHTML, '1,2,3: 1')
+  t.is(container.querySelector('.item-2').innerHTML, '0,0,0: 1')
+
+  fireEvent.click(container.querySelector('.button-unrelated'))
+  fireEvent.click(container.querySelector('.button-unrelated'))
+
+  t.is(container.querySelector('.item-1').innerHTML, '1,2,3: 1')
+  t.is(container.querySelector('.item-2').innerHTML, '0,0,0: 1')
+
+  fireEvent.click(container.querySelector('.button-count'))
+
+  t.is(container.querySelector('.item-1').innerHTML, '1,2,3: 1')
+  t.is(container.querySelector('.item-2').innerHTML, '1,1,1: 2')
+
+  fireEvent.click(container.querySelector('.button-count'))
+  fireEvent.click(container.querySelector('.button-count'))
+  fireEvent.click(container.querySelector('.button-unrelated'))
+  fireEvent.click(container.querySelector('.button-unrelated'))
+
+  t.is(container.querySelector('.item-1').innerHTML, '1,2,3: 1')
+  t.is(container.querySelector('.item-2').innerHTML, '3,3,3: 4')
+
+  fireEvent.click(container.querySelector('.button-unrelated'))
+  fireEvent.click(container.querySelector('.button-unrelated'))
+
+  t.is(container.querySelector('.item-1').innerHTML, '1,2,3: 1')
+  t.is(container.querySelector('.item-2').innerHTML, '3,3,3: 4')
+})
+
+test('useSelectorMap compares resulting obj shallowly', async (t) => {
+  const counter = atom({ count: 0, unrelated: 0 }, { label: 'cache' })
+
+  function App() {
+    return (
+      <>
+        <Button name='count' />
+        <Button name='unrelated' />
+        <Item id={1} />
+        <Item id={2} />
+      </>
+    )
+  }
+
+  function Button({ name }) {
+    const setCounter = useSet(counter)
+    return (
+      <button className={`button-${name}`} onClick={() => setCounter((s) => ({ ...s, [name]: s[name] + 1 }))}>
+        Next step
+      </button>
+    )
+  }
+
+  function Item({ id }) {
+    const renders = useRef(0)
+    renders.current += 1
+
+    const items = useSelectorMap(
+      (get) => {
+        if (id === 1) {
+          return { a: 1, b: 2, c: 3 }
+        } else {
+          return { a: get(counter).count, b: get(counter).count, c: get(counter).count }
+        }
+      },
+      [id]
+    )
+
+    return (
+      <div className={`item-${id}`}>
+        {Object.values(items).join(',')}: {renders.current}
+      </div>
+    )
+  }
+
+  const { container } = render(
+    <Provider>
+      <App />
+    </Provider>
+  )
+
+  t.is(container.querySelector('.item-1').innerHTML, '1,2,3: 1')
+  t.is(container.querySelector('.item-2').innerHTML, '0,0,0: 1')
+
+  fireEvent.click(container.querySelector('.button-unrelated'))
+  fireEvent.click(container.querySelector('.button-unrelated'))
+
+  t.is(container.querySelector('.item-1').innerHTML, '1,2,3: 1')
+  t.is(container.querySelector('.item-2').innerHTML, '0,0,0: 1')
+
+  fireEvent.click(container.querySelector('.button-count'))
+
+  t.is(container.querySelector('.item-1').innerHTML, '1,2,3: 1')
+  t.is(container.querySelector('.item-2').innerHTML, '1,1,1: 2')
+
+  fireEvent.click(container.querySelector('.button-count'))
+  fireEvent.click(container.querySelector('.button-count'))
+  fireEvent.click(container.querySelector('.button-unrelated'))
+  fireEvent.click(container.querySelector('.button-unrelated'))
+
+  t.is(container.querySelector('.item-1').innerHTML, '1,2,3: 1')
+  t.is(container.querySelector('.item-2').innerHTML, '3,3,3: 4')
+
+  fireEvent.click(container.querySelector('.button-unrelated'))
+  fireEvent.click(container.querySelector('.button-unrelated'))
+
+  t.is(container.querySelector('.item-1').innerHTML, '1,2,3: 1')
+  t.is(container.querySelector('.item-2').innerHTML, '3,3,3: 4')
 })

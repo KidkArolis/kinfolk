@@ -7,24 +7,25 @@ Primitives
 Hooks
 - [x] Provider
 - [x] useValue(atom|selector)
-- [ ] useSelector(atom|selector)
-- [ ] useSelectorFamily(atom|selector)
 - [x] useSet(atom)
-- [ ] useReducer(atom, reducer)
+- [x] useReducer(atom, reducer)
+- [x] useSelector(select)
+- [ ] useSelectorFamily(arg => select)
 
 Memoisation shortcuts
-- [ ] selectorList
-- [ ] selectorMap
+- [x] selectorList
+- [x] selectorMap
 - [ ] selectorFamilyList
 - [ ] selectorFamilyMap
-- [ ] useSelectorList
-- [ ] useSelectorMap
+- [x] useSelectorList
+- [x] useSelectorMap
 
 Other
 - [x] test setup
 - [x] check the render order, see if possible to avoid nested re-re-renders
-- [ ] cleanup atom state when unmounting
+- [x] cleanup atom state when unmounting
 - [ ] scoped providers or creatable providers
 - [ ] selector 2nd arg for equality comparison
 - [ ] can we make selector recomputes lazy, mark as dirty, only read if needed?
 - [ ] test mounting same atom many times
+- [ ] passing no deps to useSelector makes it hang

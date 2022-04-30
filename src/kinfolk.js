@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext, useMemo, useSyncExternalStore } from 'react'
+import React, { createContext, useState, useEffect, useContext, useMemo, useRef, useSyncExternalStore } from 'react'
 
 /**
   atom
@@ -62,11 +62,19 @@ export function atom(initialState, { label = '_' } = {}) {
   return atomRef
 }
 
-export function selector(selector, { label = '_' } = {}) {
+export function selector(selector, { label = '_', equal } = {}) {
   const atomRef = Object.freeze({ label })
-  const atomMeta = { selector }
+  const atomMeta = { selector, equal }
   meta.set(atomRef, atomMeta)
   return atomRef
+}
+
+export function selectorMap(selector, { label = '_' } = {}) {
+  return selector(selector, { label, equal: shallowMapEquals })
+}
+
+export function selectorList(selector, { label = '_' } = {}) {
+  return selector(selector, { label, equal: shallowListEquals })
 }
 
 function mount(store, atomRef) {
@@ -82,6 +90,7 @@ function mount(store, atomRef) {
     listeners: new Set(),
     dependents: [],
     dependencies: [],
+    equal: atomMeta.equal || Object.is,
   }
   store.set(atomRef, atom)
 
@@ -190,7 +199,7 @@ function notify(store, atomRef) {
   if (atom.selector) {
     const curr = atom.state
     atom.state = select(store, atomRef)
-    if (curr === atom.state) return
+    if (atom.equal(curr, atom.state)) return
   }
 
   atom.listeners.forEach((l) => l(atom.state))
@@ -205,7 +214,9 @@ export function useValue(atomRef) {
 
   const { sub, getSnapshot } = useMemo(() => {
     const sub = (cb) => subscribe(store, atomRef, cb)
-    const getSnapshot = () => mount(store, atomRef).state
+    const getSnapshot = () => {
+      return mount(store, atomRef).state
+    }
     return { sub, getSnapshot }
   }, [store, atomRef])
 
@@ -249,20 +260,55 @@ export function useSet(atomRef) {
 }
 
 /**
- * Hook to create an inline selector
+ * Hook to get a setter for updating atom
+ * using the reducer pattern
  */
-export function useSelector(selectorFn, deps, label) {
-  const [initialised, setInitialised] = useState(false)
-  const [sel, setSelector] = useState(() => selector(selectorFn, { label }))
+export function useReducer(atomRef, reducer) {
+  const store = useContext(AtomContext)
 
   useEffect(() => {
-    if (initialised) {
-      setSelector(selector(selectorFn, { label }))
+    mount(store, atomRef)
+    return () => {
+      unmount(store, atomRef)
     }
-    setInitialised(true)
+  }, [atomRef])
+
+  return (action) => {
+    const atom = store.get(atomRef)
+
+    const curr = atom.state
+
+    atom.state = reducer(atom.state, action)
+
+    if (curr !== atom.state) {
+      notify(store, atomRef)
+    }
+  }
+}
+
+/**
+ * Hook to create an inline selector
+ */
+export function useSelector(selectorFn, deps, label, equal) {
+  const initialised = useRef(false)
+  const [sel, setSelector] = useState(() => selector(selectorFn, { label, equal }))
+
+  useEffect(() => {
+    if (initialised.current) {
+      setSelector(selector(selectorFn, { label, equal }))
+    }
+    initialised.current = true
   }, deps)
 
   return useValue(sel)
+}
+
+export function useSelectorMap(selectorFn, deps, label) {
+  return useSelector(selectorFn, deps, label, shallowMapEquals)
+}
+
+export function useSelectorList(selectorFn, deps, label) {
+  return useSelector(selectorFn, deps, label, shallowListEquals)
 }
 
 /**
@@ -289,4 +335,27 @@ function mapValues(obj, mapFn) {
     acc[key] = mapFn(acc[key], key)
     return acc
   }, {})
+}
+
+export function shallowMapEquals(a, b) {
+  if (a === b) return true
+  if (!a || !b) return false
+  if (!isObject(a) || !isObject(b)) return false
+  for (const i in a) if (a[i] !== b[i]) return false
+  for (const i in b) if (!(i in a)) return false
+  return true
+}
+
+export function shallowListEquals(a, b) {
+  if (a === b) return true
+  if (!a || !b) return false
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false
+  }
+  return true
+}
+
+function isObject(obj) {
+  return typeof obj === 'object' && Object.prototype.toString.call(obj) === '[object Object]'
 }
