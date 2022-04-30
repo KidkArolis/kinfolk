@@ -16,12 +16,12 @@ import React, { createContext, useState, useEffect, useContext, useMemo, useSync
   --------
   when we create an atom, we pass initial state and
   other config - we call this atomMeta and store in
-  a global atomMetaMap keyed by a unique atomRef for
+  a global meta map keyed by a unique atomRef for
   each atom created
 
   in conclusion, we have
 
-  atomMetaMap: atomRef -> atomMeta (global)
+  meta: atomRef -> atomMeta (global)
   store: atomRef -> atom (per Provider)
  
  */
@@ -31,7 +31,7 @@ import React, { createContext, useState, useEffect, useContext, useMemo, useSync
  * ever created. Automatically cleans up if the atomRef
  * is released.
  */
-const atomMetaMap = new WeakMap()
+const meta = new WeakMap()
 
 /**
  * Context is where we keep the store of atoms for each
@@ -55,49 +55,37 @@ export function Provider({ children, onMount }) {
   return <AtomContext.Provider value={store}>{children}</AtomContext.Provider>
 }
 
-export function atom(initialState, { label } = {}) {
-  const atomRef = {}
-  if (label) atomRef.label = label
-  const atomMeta = { initialState, label }
-  atomMetaMap.set(atomRef, atomMeta)
+export function atom(initialState, { label = '_' } = {}) {
+  const atomRef = Object.freeze({ label })
+  const atomMeta = { initialState }
+  meta.set(atomRef, atomMeta)
   return atomRef
 }
 
-export function selector(selector, { label } = {}) {
-  const atomRef = {}
-  if (label) atomRef.label = label
-  const atomMeta = { selector, label }
-  atomMetaMap.set(atomRef, atomMeta)
+export function selector(selector, { label = '_' } = {}) {
+  const atomRef = Object.freeze({ label })
+  const atomMeta = { selector }
+  meta.set(atomRef, atomMeta)
   return atomRef
-}
-
-function subscribe(store, atomRef, fn) {
-  const atom = store.get(atomRef)
-  atom.listeners.add(fn)
-  return function unsubscribe() {
-    atom.listeners.delete(fn)
-  }
 }
 
 function mount(store, atomRef) {
   // already mounted
   if (store.has(atomRef)) {
-    return
+    return store.get(atomRef)
   }
 
-  // initialise the atom
-  const atomMeta = atomMetaMap.get(atomRef)
+  const atomMeta = meta.get(atomRef)
   const atom = {
-    label: atomMeta.label,
+    label: atomRef.label,
     state: null,
     listeners: new Set(),
     dependents: [],
     dependencies: [],
   }
-
   store.set(atomRef, atom)
 
-  if (Object.prototype.hasOwnProperty.call(atomMeta, 'initialState')) {
+  if (has(atomMeta, 'initialState')) {
     atom.state = atomMeta.initialState
   }
 
@@ -105,41 +93,39 @@ function mount(store, atomRef) {
     atom.selector = atomMeta.selector
     atom.state = select(store, atomRef)
   }
+
+  return store.get(atomRef)
 }
 
 function unmount(store, atomRef) {
   const atom = store.get(atomRef)
 
-  if (atom) {
-    if (!atom.dependents.length) {
-      // console.log('Unmounting', atom)
-      getter(store, atomRef)
-      store.delete(atomRef)
-      atom.dependencies.forEach((depRef) => {
-        // console.log(store.get(depRef))
-        unmount(store, depRef)
-      })
-    }
+  if (atom && !atom.dependents.length) {
+    const dependencies = atom.dependencies
+
+    // invoke getter to clear dependencies
+    getter(store, atomRef)
+
+    // delete atom since nobody is using it anymore
+    store.delete(atomRef)
+
+    // and walk the dependency tree down to
+    // clean them up also
+    dependencies.forEach((depRef) => {
+      unmount(store, depRef)
+    })
   }
 }
 
-export function useValue(atomRef) {
-  const store = useContext(AtomContext)
-
-  mount(store, atomRef)
-  useEffect(() => {
-    return () => {
-      unmount(store, atomRef)
-    }
-  }, [])
-
-  const { sub, getSnapshot } = useMemo(() => {
-    const sub = (cb) => subscribe(store, atomRef, cb)
-    const getSnapshot = () => store.get(atomRef).state
-    return { sub, getSnapshot }
-  }, [store, atomRef])
-
-  return useSyncExternalStore(sub, getSnapshot)
+/**
+ * Listen to atom changes
+ */
+function subscribe(store, atomRef, fn) {
+  const atom = store.get(atomRef)
+  atom.listeners.add(fn)
+  return function unsubscribe() {
+    atom.listeners.delete(fn)
+  }
 }
 
 /**
@@ -167,15 +153,11 @@ function getter(store, atomRef) {
       return dependent.count > 0
     })
   }
+  atom.dependencies = []
 
   // provide a new getter that will re-track the dependencies
   return (upstreamAtomRef) => {
     mount(store, upstreamAtomRef)
-    // useEffect(() => {
-    //   return () => {
-    //     unmount(store, upstreamAtomRef)
-    //   }
-    // }, [])
 
     // track dependencies
     if (!atom.dependencies.includes(upstreamAtomRef)) {
@@ -211,11 +193,35 @@ function notify(store, atomRef) {
   atom.dependents.forEach((d) => notify(store, d.atomRef))
 }
 
+/**
+ * Hook to subscribe to atom's value
+ */
+export function useValue(atomRef) {
+  const store = useContext(AtomContext)
+
+  const { sub, getSnapshot } = useMemo(() => {
+    const sub = (cb) => subscribe(store, atomRef, cb)
+    const getSnapshot = () => mount(store, atomRef).state
+    return { sub, getSnapshot }
+  }, [store, atomRef])
+
+  useEffect(() => {
+    return () => {
+      unmount(store, atomRef)
+    }
+  }, [])
+
+  return useSyncExternalStore(sub, getSnapshot)
+}
+
+/**
+ * Hook to get a setter for updating atom
+ */
 export function useSet(atomRef) {
   const store = useContext(AtomContext)
 
-  mount(store, atomRef)
   useEffect(() => {
+    mount(store, atomRef)
     return () => {
       unmount(store, atomRef)
     }
@@ -238,21 +244,36 @@ export function useSet(atomRef) {
   }
 }
 
+/**
+ * Hook to create an inline selector
+ */
 export function useSelector(selectorFn, deps = []) {
   const selected = useMemo(() => selector(selectorFn), deps)
   return useValue(selected)
 }
 
+/**
+ * A helper for creating a set of named functions
+ * that can update the atom
+ */
 export function actions(atomRef, actions) {
   return function useActions() {
     const set = useSet(atomRef)
     return useMemo(() => {
-      return Object.keys(actions).reduce((acc, name) => {
-        acc[name] = (...args) => {
-          set((state) => actions[name](state, ...args))
-        }
-        return acc
-      }, {})
+      return mapValues(actions, (action) => (payload) => {
+        set((state) => action(state, payload))
+      })
     }, [set])
   }
+}
+
+function has(obj, key) {
+  return Object.prototype.hasOwnProperty.call(obj, key)
+}
+
+function mapValues(obj, mapFn) {
+  return Object.keys(obj).reduce((acc, key) => {
+    acc[key] = mapFn(acc[key], key)
+    return acc
+  }, {})
 }
