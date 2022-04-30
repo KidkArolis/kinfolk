@@ -1,23 +1,29 @@
-import React, { createContext, useState, useContext, useMemo, useSyncExternalStore } from 'react'
+import React, { createContext, useState, useEffect, useContext, useMemo, useSyncExternalStore } from 'react'
 
 /**
- * atomRef
- * -------
- * each atom is referenced by atomRef when using
- * hooks to interact with the atom
- *
- * atomMeta
- * --------
- * when we create an atom, we pass initial state and
- * various config options, we call this atomMeta and
- * store in a global atomMetaMap keyed by a unique
- * atomRef for each atom created
- *
- * atom
- * ----
- * the atom itself that is only created upon
- * interacting it the first time and is stored in
- * the context
+  atom
+  ----
+  atoms are lazily created upon interacting with them
+  for the first time and are stored in a Map in the context
+  they don't get used directly and are instead interacted
+  with via hooks
+
+  atomRef
+  -------
+  each atom is referenced by a unique atomRef
+
+  atomMeta
+  --------
+  when we create an atom, we pass initial state and
+  other config - we call this atomMeta and store in
+  a global atomMetaMap keyed by a unique atomRef for
+  each atom created
+
+  in conclusion, we have
+
+  atomMetaMap: atomRef -> atomMeta (global)
+  store: atomRef -> atom (per Provider)
+ 
  */
 
 /**
@@ -28,8 +34,9 @@ import React, { createContext, useState, useContext, useMemo, useSyncExternalSto
 const atomMetaMap = new WeakMap()
 
 /**
- * Context is where we keep the store of atoms for this
- * particular subtree.
+ * Context is where we keep the store of atoms for each
+ * different React subtree, typically you'll use one only
+ * but you can use multiple ones.
  */
 const AtomContext = createContext()
 
@@ -37,21 +44,15 @@ const AtomContext = createContext()
  * Provider wraps the application or a subtree so that
  * all hooks could be used within that subtree.
  */
-export function Provider({ children }) {
-  const [context] = useState(() => {
-    const store = new WeakMap()
-    window.store = store
-    return { store }
-  })
-  return <AtomContext.Provider value={context}>{children}</AtomContext.Provider>
-}
+export function Provider({ children, onMount }) {
+  const [store] = useState(() => new Map())
 
-function subscribe(store, atomRef, fn) {
-  const atom = store.get(atomRef)
-  atom.listeners.add(fn)
-  return function unsubscribe() {
-    atom.listeners.delete(fn)
-  }
+  useEffect(() => {
+    const getState = () => Array.from(store.values())
+    onMount && onMount(store, getState)
+  }, [])
+
+  return <AtomContext.Provider value={store}>{children}</AtomContext.Provider>
 }
 
 export function atom(initialState, { label } = {}) {
@@ -68,6 +69,14 @@ export function selector(selector, { label } = {}) {
   const atomMeta = { selector, label }
   atomMetaMap.set(atomRef, atomMeta)
   return atomRef
+}
+
+function subscribe(store, atomRef, fn) {
+  const atom = store.get(atomRef)
+  atom.listeners.add(fn)
+  return function unsubscribe() {
+    atom.listeners.delete(fn)
+  }
 }
 
 function mount(store, atomRef) {
@@ -98,14 +107,31 @@ function mount(store, atomRef) {
   }
 }
 
-export function useAtom(atomRef) {
-  return [useAtomValue(atomRef), useAtomSet(atomRef)]
+function unmount(store, atomRef) {
+  const atom = store.get(atomRef)
+
+  if (atom) {
+    if (!atom.dependents.length) {
+      // console.log('Unmounting', atom)
+      getter(store, atomRef)
+      store.delete(atomRef)
+      atom.dependencies.forEach((depRef) => {
+        // console.log(store.get(depRef))
+        unmount(store, depRef)
+      })
+    }
+  }
 }
 
-export function useAtomValue(atomRef) {
-  const { store } = useContext(AtomContext)
+export function useValue(atomRef) {
+  const store = useContext(AtomContext)
 
   mount(store, atomRef)
+  useEffect(() => {
+    return () => {
+      unmount(store, atomRef)
+    }
+  }, [])
 
   const { sub, getSnapshot } = useMemo(() => {
     const sub = (cb) => subscribe(store, atomRef, cb)
@@ -144,6 +170,13 @@ function getter(store, atomRef) {
 
   // provide a new getter that will re-track the dependencies
   return (upstreamAtomRef) => {
+    mount(store, upstreamAtomRef)
+    // useEffect(() => {
+    //   return () => {
+    //     unmount(store, upstreamAtomRef)
+    //   }
+    // }, [])
+
     // track dependencies
     if (!atom.dependencies.includes(upstreamAtomRef)) {
       atom.dependencies.push(upstreamAtomRef)
@@ -178,8 +211,15 @@ function notify(store, atomRef) {
   atom.dependents.forEach((d) => notify(store, d.atomRef))
 }
 
-export function useAtomSet(atomRef) {
-  const { store } = useContext(AtomContext)
+export function useSet(atomRef) {
+  const store = useContext(AtomContext)
+
+  mount(store, atomRef)
+  useEffect(() => {
+    return () => {
+      unmount(store, atomRef)
+    }
+  }, [])
 
   return (state) => {
     const atom = store.get(atomRef)
@@ -198,16 +238,21 @@ export function useAtomSet(atomRef) {
   }
 }
 
-export function useAtomSelector(selectorFn, deps = []) {
+export function useSelector(selectorFn, deps = []) {
   const selected = useMemo(() => selector(selectorFn), deps)
   return useValue(selected)
 }
 
-export function reducer(atomRef, fn) {
-  return function useReducer() {
+export function actions(atomRef, actions) {
+  return function useActions() {
     const set = useSet(atomRef)
-    return (...args) => {
-      set((state) => fn(state, ...args))
-    }
+    return useMemo(() => {
+      return Object.keys(actions).reduce((acc, name) => {
+        acc[name] = (...args) => {
+          set((state) => actions[name](state, ...args))
+        }
+        return acc
+      }, {})
+    }, [set])
   }
 }

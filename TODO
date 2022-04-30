@@ -2,15 +2,15 @@ Primitives
 - [x] atom
 - [x] selector
 - [ ] selectorFamily
-- [x] reducer(atom, reducer)
+- [x] actions(atom, actions)
 
 Hooks
 - [x] Provider
 - [x] useValue(atom|selector)
-- [ ] useReducer(atom, reducer)
-- [x] useSet(atom)
 - [ ] useSelector(atom|selector)
 - [ ] useSelectorFamily(atom|selector)
+- [x] useSet(atom)
+- [ ] useReducer(atom, reducer)
 
 Memoisation shortcuts
 - [ ] selectorList
@@ -23,10 +23,7 @@ Memoisation shortcuts
 Other
 - [x] test setup
 - [x] check the render order, see if possible to avoid nested re-re-renders
-- [ ] remove useAtom once again, just too much and confusion between atoms / selectors..
 - [ ] cleanup atom state when unmounting
 - [ ] scoped providers or creatable providers
 - [ ] selector 2nd arg for equality comparison
-
-V2
 - [ ] can we make selector recomputes lazy, mark as dirty, only read if needed?
