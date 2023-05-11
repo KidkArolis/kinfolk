@@ -164,7 +164,7 @@ function unmount(store, atomRef) {
 
     // and walk the dependency tree down to
     // clean them up also
-    dependencies.forEach((depRef) => {
+    dependencies.forEach(depRef => {
       unmount(store, depRef)
     })
   }
@@ -208,7 +208,7 @@ function getter(store, atomRef) {
   const atom = store.get(atomRef)
   for (const upstreamAtomRef of atom.dependencies) {
     const upstreamAtom = store.get(upstreamAtomRef)
-    upstreamAtom.dependents = upstreamAtom.dependents.filter((dependent) => {
+    upstreamAtom.dependents = upstreamAtom.dependents.filter(dependent => {
       if (dependent.atomRef !== atomRef) {
         return true
       } else {
@@ -220,7 +220,7 @@ function getter(store, atomRef) {
   atom.dependencies = []
 
   // provide a new getter that will re-track the dependencies
-  return (upstreamAtomRef) => {
+  return upstreamAtomRef => {
     if (!upstreamAtomRef) {
       throw new Error('No atom/selector passed to the get() call')
     }
@@ -235,7 +235,7 @@ function getter(store, atomRef) {
     // and dependents
     const upstreamAtom = store.get(upstreamAtomRef)
     const dependents = upstreamAtom.dependents
-    const existingDependent = dependents.find((d) => d.atomRef === atomRef)
+    const existingDependent = dependents.find(d => d.atomRef === atomRef)
     if (existingDependent) {
       existingDependent.count += 1
     } else {
@@ -258,8 +258,8 @@ function notify(store, atomRef) {
     if (eq(curr, atom.state)) return
   }
 
-  atom.listeners.forEach((l) => l(atom.state))
-  atom.dependents.forEach((d) => notify(store, d.atomRef))
+  atom.listeners.forEach(l => l(atom.state))
+  atom.dependents.forEach(d => notify(store, d.atomRef))
 }
 
 /**
@@ -269,7 +269,7 @@ export function useValue(atomRef) {
   const store = useContext(AtomContext)
 
   const { sub, getSnapshot } = useMemo(() => {
-    const sub = (cb) => subscribe(store, atomRef, cb)
+    const sub = cb => subscribe(store, atomRef, cb)
     const getSnapshot = () => {
       return mount(store, atomRef).state
     }
@@ -298,7 +298,7 @@ export function useSetter(atomRef) {
     }
   }, [atomRef])
 
-  return (state) => {
+  return state => {
     const atom = store.get(atomRef)
 
     const curr = atom.state
@@ -330,7 +330,7 @@ export function useReducer(atomRef, reducer) {
   }, [atomRef])
 
   return useCallback(
-    (action) => {
+    action => {
       const atom = store.get(atomRef)
       const curr = atom.state
       atom.state = reducer(atom.state, action)

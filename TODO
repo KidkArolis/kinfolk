@@ -12,20 +12,18 @@ Hooks
 - [x] useSelector(select)
 - [ ] useSelectorFamily(arg => select)
 
-Memoisation shortcuts
-- [x] selectorList
-- [x] selectorMap
-- [ ] selectorFamilyList
-- [ ] selectorFamilyMap
-- [x] useSelectorList
-- [x] useSelectorMap
-
 Other
 - [x] test setup
 - [x] check the render order, see if possible to avoid nested re-re-renders
 - [x] cleanup atom state when unmounting
-- [ ] scoped providers or creatable providers
-- [ ] selector 2nd arg for equality comparison
-- [ ] can we make selector recomputes lazy, mark as dirty, only read if needed?
-- [ ] test mounting same atom many times
+- [x] selector option for equality comparison
+- [ ] move selector family resolution and cache into the provider tree, keep under get(fam, arg1, arg2, arg3)
+- [ ] migrate to React 18
+- [ ] migrate to react testing library
 - [ ] passing no deps to useSelector makes it hang
+- [ ] test mounting same atom many times
+
+V1.1
+- [ ] scoped providers or creatable providers
+- [ ] can we make selector recomputes lazy, mark as dirty, only read if needed?
+- [ ] ability to reset / clear the atom (can we just use useSet?)

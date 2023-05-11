@@ -2,19 +2,26 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import ReactDOM from 'react-dom'
-import { atom, action, useValue } from '../src'
+import { Provider, atom, selector, useValue, useSet } from '../src'
 import './styles.css'
 
 const counter = atom(0)
-const useInc = action(() => state => state + 1)
-
-const double = selector(get => get(counter) * 2)
+const double = selector((get) => get(counter) * 2)
 
 function App() {
   const val = useValue(counter)
   const dub = useValue(double)
-  const inc = useInc(counter)
-  return <div>{val} / {dub} <button onClick={inc}>Increment</button></div>
+  const set = useSet(counter)
+  return (
+    <div>
+      {val} / {dub} <button onClick={() => set(val + 1)}>Increment</button>
+    </div>
+  )
 }
 
-ReactDOM.render(<App />, document.querySelector('#root'))
+ReactDOM.render(
+  <Provider>
+    <App />
+  </Provider>,
+  document.querySelector('#root')
+)

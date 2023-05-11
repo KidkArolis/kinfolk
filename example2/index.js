@@ -1,45 +1,36 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
-import { Provider, atom, reducer, selector, useValue, useSet, useSelector } from '../src'
+import { Provider, atom, reducer, selector, selectorFamily, useValue, useSetter, useSelector, useReducer } from '../src'
 import './styles.css'
 
 // atoms
-const counter = atom(0, { label: 'counter' })
+const counter = atom(0)
 
 // selectors
-const double = selector((get) => get(counter) * 2, { label: 'double' })
+const double = selector((get) => get(counter) * 2)
 
 // selector family
-// counst times = selectorFamily(t => get => get(counter) * t)
+const times = selectorFamily((t) => (get) => get(counter) * t)
 
-// actions
-const useInc = reducer(counter, (state, payload) => state + 1)
+// updates
+const increment = (state, payload) => state + 1
 
 function App() {
   // selecting atom
   const val = useValue(counter)
 
-  // // selecting selector
+  // selecting selector
   const dub = useValue(double)
 
   // inline selector
   const trip = useSelector((get) => get(counter) * 3 + dub, [dub])
 
-  // selecting atom with sub - selector
-  // const quad = useValue(counter, (state) => state * 4)
-
-  // action
-  const inc = useInc()
-
-  // return (
-  //   <div>
-  //     {val} / {dub} / {trip} / {quad} <button onClick={inc}>Increment</button>
-  //   </div>
-  // )
+  // reducer
+  const inc = useReducer(counter, increment)
 
   return (
     <div>
-      Value: {val} / {dub} / {trip} <button onClick={inc}>Increment</button>
+      Value: {val} / {dub} / {trip} <button onClick={() => inc()}>Increment</button>
       {val > 3 ? null : <Nesting />}
     </div>
   )
@@ -71,18 +62,18 @@ function NestedChild1() {
 
 function NestedChild2() {
   const val = useValue(nested)
-  const update = useSet(nested)
+  const update = useSetter(nested)
   console.log('Rendering <NestedChild2 />')
   return (
     <div>
       <div>NestedChild2: {val}</div>
-      <button onClick={() => update(Math.random())}>Increment</button>
+      <button onClick={() => update(Math.random())}>Update</button>
     </div>
   )
 }
 
 ReactDOM.render(
-  <Provider>
+  <Provider onMount={(store) => (window.store = store)}>
     <App />
   </Provider>,
   document.querySelector('#root')
