@@ -5,17 +5,16 @@ import React, {
   useContext,
   useCallback,
   useMemo,
-  useRef,
   useSyncExternalStore,
 } from 'react'
 
 /**
   atomRef
   -------
-  When you create atom with atom(), you get a reference which we cann atomRef
-  internally in the implementation. We'll use atomRef to store atom's metadata
-  such as initial state, and atom's state such as the current value for the
-  current context.
+  When you create atom with atom(), you get a reference which we call atomRef
+  internally in the implementation. We'll use atomRef as the key to store atom's
+  metadata such as initial state in atomMetas and atom's current state in the
+  Provider's context.
 
   atomMeta
   --------
@@ -26,10 +25,11 @@ import React, {
   atomState
   ---------
   Atom state is lazily initialised upon interacting with the atom for the
-  first time with a hook. We store store this state in a Map in React context.
+  first time with a hook. We store this state in a Map in React context.
 
-  in conclusion, we have
+  In summary, we have:
 
+  atom() -> atomRef
   atomMetas: atomRef -> atomMeta (global)
   atomStates: atomRef -> atomState (per Provider)
  
@@ -48,6 +48,15 @@ const atomMetas = new WeakMap()
 const AtomContext = createContext()
 
 /**
+ * Used when subscribing to atom values in selector and useSelector
+ * as the temporary reference
+ */
+const defaultGet = () => {
+  throw new Error('Atom values can only be read inside selectors')
+}
+let __get = [defaultGet]
+
+/**
  * Provider stores the state of the atoms to be shared
  * within the wrapped application or subtree.
  */
@@ -62,20 +71,21 @@ export function Provider({ children, onMount }) {
 }
 
 export function atom(initialState, { label } = {}) {
-  const atomRef = Object.freeze(label ? { label } : {})
+  const atomRef = () => __get[__get.length - 1](atomRef)
+  if (label) atomRef.label = label
   const atomMeta = { initialState }
   atomMetas.set(atomRef, atomMeta)
   return atomRef
 }
 
 export function selector(selector, { label, equal } = {}) {
-  const selectorRef = Object.freeze(label ? { label } : {})
+  const selectorRef = () => __get[__get.length - 1](selectorRef)
+  if (label) selectorRef.label = label
   const selectorMeta = { selector, equal }
   atomMetas.set(selectorRef, selectorMeta)
   return selectorRef
 }
 
-// TODO??
 export function selectorFamily(selectorFamily, { label, equal } = {}) {
   const selectorFamilyRef = Object.freeze(label ? { label } : {})
   const selectorFamilyMemo = new Map()
@@ -190,12 +200,13 @@ function select(store, atomRef) {
   const get = getter(store, atomRef)
 
   if (atom.selector) {
-    return atom.selector(get)
+    console.log('Setting a getter for', atomRef, atomRef.label)
+    return withGetter(get, () => atom.selector())
   }
 
-  if (atom.selectorFamily) {
-    return atom.selectorFamily
-  }
+  // if (atom.selectorFamily) {
+  //   return atom.selectorFamily
+  // }
 }
 
 /**
@@ -204,6 +215,7 @@ function select(store, atomRef) {
  * if the depdendencies update.
  */
 function getter(store, atomRef) {
+  console.log('Made getter for', atomRef.label)
   // cleanup
   const atom = store.get(atomRef)
   for (const upstreamAtomRef of atom.dependencies) {
@@ -263,18 +275,21 @@ function notify(store, atomRef) {
 }
 
 /**
- * Hook to subscribe to atom's value
+ * Hook to subscribe to atom/selector value
  */
-export function useValue(atomRef) {
+
+export function useSelector(atomOrSelectorFn, deps, equal) {
   const store = useContext(AtomContext)
+
+  const atomRef = useMemo(() => {
+    return atomMetas.has(atomOrSelectorFn) ? atomOrSelectorFn : selector(atomOrSelectorFn, { equal })
+  }, deps)
 
   const { sub, getSnapshot } = useMemo(() => {
     const sub = (cb) => subscribe(store, atomRef, cb)
-    const getSnapshot = () => {
-      return mount(store, atomRef).state
-    }
+    const getSnapshot = () => mount(store, atomRef).state
     return { sub, getSnapshot }
-  }, [store, atomRef])
+  }, [store, atomRef, atomOrSelectorFn])
 
   useEffect(() => {
     return () => {
@@ -284,6 +299,47 @@ export function useValue(atomRef) {
 
   return useSyncExternalStore(sub, getSnapshot)
 }
+
+// export function useSelector(selectorFn, deps, equal) {
+//   const initialised = useRef(false)
+//   const [sel, setSelector] = useState(() => {
+//     console.log('Seelecting!!!!!!!!!!')
+//     return selector(selectorFn, { equal })
+//   })
+
+//   useEffect(() => {
+//     if (initialised.current) {
+//       setSelector(selector(selectorFn, { equal }))
+//     }
+//     initialised.current = true
+//   }, deps)
+
+//   return useValue(sel.atomRef)
+// }
+
+/**
+ * Subscribe to atom/selector value directly without a fn
+ * used internally by useSelector
+ */
+// function useValue(atomRef) {
+//   const store = useContext(AtomContext)
+
+//   const { sub, getSnapshot } = useMemo(() => {
+//     const sub = (cb) => subscribe(store, atomRef, cb)
+//     const getSnapshot = () => {
+//       return mount(store, atomRef).state
+//     }
+//     return { sub, getSnapshot }
+//   }, [store, atomRef])
+
+//   useEffect(() => {
+//     return () => {
+//       unmount(store, atomRef)
+//     }
+//   }, [atomRef])
+
+//   return useSyncExternalStore(sub, getSnapshot)
+// }
 
 /**
  * Hook to get a setter for updating atom
@@ -342,21 +398,11 @@ export function useReducer(atomRef, reducer) {
   )
 }
 
-/**
- * Hook to create an inline selector
- */
-export function useSelector(selectorFn, deps, equal) {
-  const initialised = useRef(false)
-  const [sel, setSelector] = useState(() => selector(selectorFn, { equal }))
-
-  useEffect(() => {
-    if (initialised.current) {
-      setSelector(selector(selectorFn, { equal }))
-    }
-    initialised.current = true
-  }, deps)
-
-  return useValue(sel)
+function withGetter(get, fn) {
+  __get.push(get)
+  const val = fn()
+  __get.pop()
+  return val
 }
 
 function has(obj, key) {

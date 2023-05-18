@@ -5,38 +5,39 @@ const cache = atom({
     e1: {},
     e2: {},
     e3: {},
-    n1: {} // new item comes in
+    n1: {}, // new item comes in
   },
   queries: {
-    a1: ['e1'],
-    a2: ['e1', 'e2'],
-    a3: ['e3']
-  }
+    a1: { itemIds: ['e1'] },
+    a2: { itemIds: ['e1', 'e2'] },
+    a3: { itemIds: ['e3'] },
+  },
 })
 
-// a selector recomputes the value eagerly if upstream dependencies (atoms/selectors) change - bam
-// and they memoise
-// const entities = selector(() => cache().entities)
-const queries = selector(() => cache().queries)
-const query = selectorFamily(queryId => () => queries()[queryId])
-// since we can reach fot his item directly via cache, we recompute, but if it
-// returns the same exact reference, it will not trigger a re-render if someone is
-// referencing this selector, or rerender upstream shiz - e.g.!
-const item = selectorFamily(itemId => () => cache().entities[itemId])
-// here however, we're computing a new array, which is always new by reference
-// but we're guarded against changes, because _only_ if query changes, and only
-// if any of the items referenced change, will we recompute to begin with!
-const queryResult = selectorFamily(queryId => () => query(queryId).map(itemId => item(itemId)))
-const enhancedQueryResult = selectorFamily(queryId => () => heavyOperation(queryResult(queryId)))
+// a selector caches the computed value and recomputes the value if upstream dependencies change
+const query = selector((queryId) => cache(['queries', queryId]))
+
+// stable, granular reference to an item
+const item = selector((itemId) => cache(['entities', itemId]))
+
+// we now resolve a live, but stable query result by combining query with items
+const queryResult = selector((queryId) => query(queryId).itemIds.map(item))
+
+// we could even further evolve this obj
+const enhancedQueryResult = selector((queryId) => heavyOperation(queryResult(queryId)))
 
 export function useSomeQueries(queryConfigs) {
   const [someState, setState] = useState()
+
   const datas = useSelector(() => {
-    return queryConfigs.map(queryId => {
+    return queryConfigs.map((queryId) => {
       // by using the result, we bind to changes to this query
-      return heavyOperation(queryResult(queryId), someState)
+      const q = enhancedQueryResult(queryId)
+      return heavyOperationInvolvingState(q, someState)
     })
-  }, [someState])
+  }, [queryConfigs, someState])
+
+  return datas
 }
 
 // export function useSomeQueries(queries) {
@@ -58,7 +59,6 @@ export function useSomeQueries(queryConfigs) {
 
 //   return results
 // }
-
 
 // export function useSomeQueries(queries) {
 
@@ -88,6 +88,5 @@ export function useSomeQueries(queryConfigs) {
 //   return results
 // }
 
-
 // what if...
-cache full objects in queries, not entities..
+// cache full objects in queries, not entities..

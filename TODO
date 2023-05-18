@@ -1,29 +1,21 @@
 Primitives
 - [x] atom
-- [x] selector
-- [ ] selectorFamily
-- [x] actions(atom, actions)
-
-Hooks
+- [ ] selector - single values and families
 - [x] Provider
-- [x] useValue(atom|selector)
-- [x] useSet(atom)
+- [x] useSetter(atom)
 - [x] useReducer(atom, reducer)
-- [x] useSelector(select)
-- [ ] useSelectorFamily(arg => select)
+- [ ] useSelector(select) - read atoms, selectors
 
 Other
-- [x] test setup
 - [x] check the render order, see if possible to avoid nested re-re-renders
-- [x] cleanup atom state when unmounting
-- [x] selector option for equality comparison
+- [ ] cleanup useSelector selectors when unmounting
+- [ ] cleanup atom state when unmounting
+- [ ] selector option for equality comparison
 - [ ] move selector family resolution and cache into the provider tree, keep under get(fam, arg1, arg2, arg3)
-- [ ] migrate to React 18
-- [ ] migrate to react testing library
 - [ ] passing no deps to useSelector makes it hang
 - [ ] test mounting same atom many times
 
 V1.1
 - [ ] scoped providers or creatable providers
 - [ ] can we make selector recomputes lazy, mark as dirty, only read if needed?
-- [ ] ability to reset / clear the atom (can we just use useSet?)
+- [ ] ability to reset / clear the atom (can we just use useSetter?)
