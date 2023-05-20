@@ -16,33 +16,18 @@ test('basic atom and selector', async (t) => {
   const quadruple = selector(() => counter() * double(), { label: 'quadruple' })
 
   function App() {
-    console.log('Rendering <App />')
     const val1 = useSelector(() => {
-      console.log('aaa')
-      console.log(double())
-      console.log('bbb')
-      console.log(double())
       const val = counter()
-      console.log('Counter val!', double(), double())
-      console.log('Counter val!', counter(), double(), counter(), double())
-      console.log('quadruple', quadruple())
-      console.log('Counter val!', double(), double())
-      console.log('Counter val!', counter(), double(), counter(), double())
-      console.log('quadruple', quadruple())
-      console.log('Counter val!', double(), double())
-      console.log('Counter val!', counter(), double(), counter(), double())
-      console.log('quadruple', quadruple())
       return val
     }, [])
-    // const val2 = useSelector(() => double())
-    // const setCounter = () => {}
-    // const setCounter = useSetter(counter)
+    const val2 = useSelector(() => double())
+    const setCounter = useSetter(counter)
 
     return (
       <div>
-        {/*<button onClick={() => setCounter((c) => c + 1)}>Increment</button>*/}
+        <button onClick={() => setCounter((c) => c + 1)}>Increment</button>
         <div className='content-1'>{val1}</div>
-        {/*<div className='content-2'>{val2}</div>*/}
+        <div className='content-2'>{val2}</div>
       </div>
     )
   }
@@ -54,13 +39,13 @@ test('basic atom and selector', async (t) => {
   )
 
   t.is(container.querySelector('.content-1').innerHTML, '1')
-  // t.is(container.querySelector('.content-2').innerHTML, '0')
-  // fireEvent.click(container.querySelector('button'))
-  // t.is(container.querySelector('.content-1').innerHTML, '1')
-  // t.is(container.querySelector('.content-2').innerHTML, '2')
-  // fireEvent.click(container.querySelector('button'))
-  // t.is(container.querySelector('.content-1').innerHTML, '2')
-  // t.is(container.querySelector('.content-2').innerHTML, '4')
+  t.is(container.querySelector('.content-2').innerHTML, '0')
+  fireEvent.click(container.querySelector('button'))
+  t.is(container.querySelector('.content-1').innerHTML, '1')
+  t.is(container.querySelector('.content-2').innerHTML, '2')
+  fireEvent.click(container.querySelector('button'))
+  t.is(container.querySelector('.content-1').innerHTML, '2')
+  t.is(container.querySelector('.content-2').innerHTML, '4')
 })
 
 test('selector without atom being directly used', async (t) => {
@@ -167,7 +152,7 @@ test('unmounting unused atoms', async (t) => {
   t.deepEqual(mounted(), ['double', 'counter1'])
 })
 
-test.skip('inline selector', async (t) => {
+test('inline selector', async (t) => {
   const counter = atom(2, { label: 'counter' })
 
   function App() {
@@ -181,7 +166,7 @@ test.skip('inline selector', async (t) => {
   }
 
   function Content({ multiplier }) {
-    const val1 = useSelector((get) => get(counter) * multiplier, [multiplier], `multiplier-${multiplier}`)
+    const val1 = useSelector(() => counter() * multiplier, [multiplier])
 
     return (
       <div>
@@ -198,15 +183,16 @@ test.skip('inline selector', async (t) => {
   )
 
   const mounted = () => getState(store).map((a) => a.label)
+
   t.is(container.querySelector('.content-1').innerHTML, '4')
-  t.deepEqual(mounted(), ['multiplier-2', 'counter'])
+  t.deepEqual(mounted(), [undefined, 'counter'])
 
   fireEvent.click(container.querySelector('button'))
   t.is(container.querySelector('.content-1').innerHTML, '6')
-  t.deepEqual(mounted(), ['counter', 'multiplier-3'])
+  t.deepEqual(mounted(), ['counter', undefined])
 })
 
-test.only('useSelector for reading data cache allows optimal re-renders', async (t) => {
+test('useSelector for reading data cache allows optimal re-renders', async (t) => {
   const cache = atom(
     {
       items: {
@@ -286,7 +272,7 @@ test.only('useSelector for reading data cache allows optimal re-renders', async 
 
 test('useSelector only recomputes if dependencies change', async (t) => {
   const counter = atom({ count: 0, unrelated: 0 }, { label: 'cache' })
-  const count = selector((get) => get(counter).count)
+  const count = selector(() => counter().count)
 
   function App() {
     return (
@@ -312,16 +298,13 @@ test('useSelector only recomputes if dependencies change', async (t) => {
     const renders = useRef(0)
     renders.current += 1
 
-    const items = useSelector(
-      (get) => {
-        if (id === 1) {
-          return [1, 2, 3]
-        } else {
-          return [get(count), get(count), get(count)]
-        }
-      },
-      [id]
-    )
+    const items = useSelector(() => {
+      if (id === 1) {
+        return [1, 2, 3]
+      } else {
+        return [count(), count(), count()]
+      }
+    }, [id])
 
     return (
       <div className={`item-${id}`}>
@@ -367,11 +350,41 @@ test('useSelector only recomputes if dependencies change', async (t) => {
 
 test('selectorFamily', async (t) => {
   const counter = atom(21)
-  const times = selectorFamily((multi) => (get) => get(counter) * multi)
+  const times = selectorFamily((multi) => () => counter() * multi)
 
   function App() {
-    const double = useValue(times(2))
-    const triple = useValue(times(3))
+    const double = useSelector(times(2))
+    const triple = useSelector(times(3))
+
+    return (
+      <div>
+        <div className='content-1'>{double}</div>
+        <div className='content-2'>{triple}</div>
+      </div>
+    )
+  }
+
+  let store
+  const { container, unmount } = render(
+    <Provider onMount={(store_, getState_) => (store = store_)}>
+      <App />
+    </Provider>
+  )
+
+  t.is(container.querySelector('.content-1').innerHTML, '42')
+  t.is(container.querySelector('.content-2').innerHTML, '63')
+
+  unmount()
+  t.deepEqual(getState(store), [])
+})
+
+test.only('selector family', async (t) => {
+  const counter = atom(21)
+  const times = selector((multi) => counter() * multi)
+
+  function App() {
+    const double = useSelector(() => times(2))
+    const triple = useSelector(() => times(3))
 
     return (
       <div>

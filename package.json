@@ -2,7 +2,7 @@
   "name": "kinfolk",
   "version": "1.0.0",
   "description": "Atoms and selectors for React",
-  "main": "src/index.js",
+  "main": "src/kinfolk.js",
   "directories": {
     "src": "src"
   },

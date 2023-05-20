@@ -200,7 +200,6 @@ function select(store, atomRef) {
   const get = getter(store, atomRef)
 
   if (atom.selector) {
-    console.log('Setting a getter for', atomRef, atomRef.label)
     return withGetter(get, () => atom.selector())
   }
 
@@ -215,7 +214,6 @@ function select(store, atomRef) {
  * if the depdendencies update.
  */
 function getter(store, atomRef) {
-  console.log('Made getter for', atomRef.label)
   // cleanup
   const atom = store.get(atomRef)
   for (const upstreamAtomRef of atom.dependencies) {
@@ -232,11 +230,7 @@ function getter(store, atomRef) {
   atom.dependencies = []
 
   // provide a new getter that will re-track the dependencies
-  return (upstreamAtomRef) => {
-    if (!upstreamAtomRef) {
-      throw new Error('No atom/selector passed to the get() call')
-    }
-
+  return (upstreamAtomRef, arg) => {
     mount(store, upstreamAtomRef)
 
     // track dependencies
@@ -299,47 +293,6 @@ export function useSelector(atomOrSelectorFn, deps, equal) {
 
   return useSyncExternalStore(sub, getSnapshot)
 }
-
-// export function useSelector(selectorFn, deps, equal) {
-//   const initialised = useRef(false)
-//   const [sel, setSelector] = useState(() => {
-//     console.log('Seelecting!!!!!!!!!!')
-//     return selector(selectorFn, { equal })
-//   })
-
-//   useEffect(() => {
-//     if (initialised.current) {
-//       setSelector(selector(selectorFn, { equal }))
-//     }
-//     initialised.current = true
-//   }, deps)
-
-//   return useValue(sel.atomRef)
-// }
-
-/**
- * Subscribe to atom/selector value directly without a fn
- * used internally by useSelector
- */
-// function useValue(atomRef) {
-//   const store = useContext(AtomContext)
-
-//   const { sub, getSnapshot } = useMemo(() => {
-//     const sub = (cb) => subscribe(store, atomRef, cb)
-//     const getSnapshot = () => {
-//       return mount(store, atomRef).state
-//     }
-//     return { sub, getSnapshot }
-//   }, [store, atomRef])
-
-//   useEffect(() => {
-//     return () => {
-//       unmount(store, atomRef)
-//     }
-//   }, [atomRef])
-
-//   return useSyncExternalStore(sub, getSnapshot)
-// }
 
 /**
  * Hook to get a setter for updating atom
