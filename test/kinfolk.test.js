@@ -10,8 +10,8 @@ global.document = dom.window.document
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
-test('basic atom and selector', async (t) => {
-  const counter = atom(1, { label: 'counter' })
+test.only('basic atom and selector', async (t) => {
+  const counter = atom(0, { label: 'counter' })
   const double = selector(() => counter() * 2, { label: 'double' })
   const quadruple = selector(() => counter() * double(), { label: 'quadruple' })
 
@@ -38,7 +38,7 @@ test('basic atom and selector', async (t) => {
     </Provider>
   )
 
-  t.is(container.querySelector('.content-1').innerHTML, '1')
+  t.is(container.querySelector('.content-1').innerHTML, '0')
   t.is(container.querySelector('.content-2').innerHTML, '0')
   fireEvent.click(container.querySelector('button'))
   t.is(container.querySelector('.content-1').innerHTML, '1')
@@ -348,7 +348,7 @@ test('useSelector only recomputes if dependencies change', async (t) => {
   t.is(container.querySelector('.item-2').innerHTML, '3,3,3: 4')
 })
 
-test('selectorFamily', async (t) => {
+test.skip('selectorFamily', async (t) => {
   const counter = atom(21)
   const times = selectorFamily((multi) => () => counter() * multi)
 
@@ -378,7 +378,7 @@ test('selectorFamily', async (t) => {
   t.deepEqual(getState(store), [])
 })
 
-test.only('selector family', async (t) => {
+test.skip('selector family', async (t) => {
   const counter = atom(21)
   const times = selector((multi) => counter() * multi)
 

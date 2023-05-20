@@ -1,6 +1,7 @@
 Primitives
 - [x] atom
-- [ ] selector - single values and families
+- [x] selector
+- [ ] selector families
 - [x] Provider
 - [x] useSetter(atom)
 - [x] useReducer(atom, reducer)
@@ -8,10 +9,11 @@ Primitives
 
 Other
 - [x] check the render order, see if possible to avoid nested re-re-renders
+- [ ] useReducer test
+- [ ] rewrite useSetter using useReducer
 - [ ] cleanup useSelector selectors when unmounting
 - [ ] cleanup atom state when unmounting
-- [ ] selector option for equality comparison
-- [ ] move selector family resolution and cache into the provider tree, keep under get(fam, arg1, arg2, arg3)
+- [ ] move selector family resolution and cache into provider tree, keep under get(fam, arg1, arg2, arg3)
 - [ ] passing no deps to useSelector makes it hang
 - [ ] test mounting same atom many times
 

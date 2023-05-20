@@ -48,13 +48,20 @@ const atomMetas = new WeakMap()
 const AtomContext = createContext()
 
 /**
- * Used when subscribing to atom values in selector and useSelector
- * as the temporary reference
+ * A bit of machinery to allow subscribing
+ * to atoms and selectors inside other selectors
  */
 const defaultGet = () => {
   throw new Error('Atom values can only be read inside selectors')
 }
-let __get = [defaultGet]
+const __getters = [defaultGet]
+const __get = (...args) => __getters[__getters.length - 1](...args)
+function withGetter(get, fn) {
+  __getters.push(get)
+  const val = fn()
+  __getters.pop()
+  return val
+}
 
 /**
  * Provider stores the state of the atoms to be shared
@@ -71,7 +78,7 @@ export function Provider({ children, onMount }) {
 }
 
 export function atom(initialState, { label } = {}) {
-  const atomRef = () => __get[__get.length - 1](atomRef)
+  const atomRef = () => __get(atomRef)
   if (label) atomRef.label = label
   const atomMeta = { initialState }
   atomMetas.set(atomRef, atomMeta)
@@ -79,48 +86,48 @@ export function atom(initialState, { label } = {}) {
 }
 
 export function selector(selector, { label, equal } = {}) {
-  const selectorRef = () => __get[__get.length - 1](selectorRef)
+  const selectorRef = (arg) => __get(selectorRef, arg)
   if (label) selectorRef.label = label
   const selectorMeta = { selector, equal }
   atomMetas.set(selectorRef, selectorMeta)
   return selectorRef
 }
 
-export function selectorFamily(selectorFamily, { label, equal } = {}) {
-  const selectorFamilyRef = Object.freeze(label ? { label } : {})
-  const selectorFamilyMemo = new Map()
-  const selectorFamilyMeta = { selectorFamily, equal, selectorFamilyMemo }
-  atomMetas.set(selectorFamilyRef, selectorFamilyMeta)
+// export function selectorFamily(selectorFamily, { label, equal } = {}) {
+//   const selectorFamilyRef = Object.freeze(label ? { label } : {})
+//   const selectorFamilyMemo = new Map()
+//   const selectorFamilyMeta = { selectorFamily, equal, selectorFamilyMemo }
+//   atomMetas.set(selectorFamilyRef, selectorFamilyMeta)
 
-  return (...args) => {
-    let sel = selectorFamilyMemo
-    for (const arg of args) {
-      if (sel) {
-        sel = sel.get(arg)
-      } else {
-        sel = undefined
-      }
-    }
+//   return (...args) => {
+//     let sel = selectorFamilyMemo
+//     for (const arg of args) {
+//       if (sel) {
+//         sel = sel.get(arg)
+//       } else {
+//         sel = undefined
+//       }
+//     }
 
-    if (sel) {
-      return sel
-    }
+//     if (sel) {
+//       return sel
+//     }
 
-    sel = selector(selectorFamily(...args), { label, equal })
+//     sel = selector(selectorFamily(...args), { label, equal })
 
-    let l = selectorFamilyMemo
-    for (let i = 0; i < args.length - 1; i++) {
-      const arg = args[i]
-      if (!l.has(arg)) {
-        l.set(arg, new Map())
-      }
-      l = l.get(arg)
-    }
-    l.set(args[args.length - 1], sel)
+//     let l = selectorFamilyMemo
+//     for (let i = 0; i < args.length - 1; i++) {
+//       const arg = args[i]
+//       if (!l.has(arg)) {
+//         l.set(arg, new Map())
+//       }
+//       l = l.get(arg)
+//     }
+//     l.set(args[args.length - 1], sel)
 
-    return sel
-  }
-}
+//     return sel
+//   }
+// }
 
 function mount(store, atomRef) {
   // already mounted
@@ -134,6 +141,7 @@ function mount(store, atomRef) {
     listeners: new Set(),
     dependents: [],
     dependencies: [],
+    memo: new Map(),
   }
   if (atomRef.label) {
     atom.label = atomRef.label
@@ -152,10 +160,10 @@ function mount(store, atomRef) {
     atom.state = select(store, atomRef)
   }
 
-  if (atomMeta.selectorFamily) {
-    atom.selectorFamily = atomMeta.selectorFamily
-    atom.state = select(store, atomRef)
-  }
+  // if (atomMeta.selectorFamily) {
+  //   atom.selectorFamily = atomMeta.selectorFamily
+  //   atom.state = select(store, atomRef)
+  // }
 
   return store.get(atomRef)
 }
@@ -349,13 +357,6 @@ export function useReducer(atomRef, reducer) {
     },
     [reducer]
   )
-}
-
-function withGetter(get, fn) {
-  __get.push(get)
-  const val = fn()
-  __get.pop()
-  return val
 }
 
 function has(obj, key) {
