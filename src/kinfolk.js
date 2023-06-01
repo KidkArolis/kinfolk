@@ -128,9 +128,14 @@ function init(atomStates, atomRef) {
   return atomStates.get(atomRef)
 }
 
-function vacuum(atomStates, atomRef) {
+/**
+ * Whenever we unsubscribe from a selector, we will
+ * attempt to delete if it's no longer needed
+ */
+function dispose(atomStates, atomRef) {
   const atom = atomStates.get(atomRef)
   if (isSelector(atom) && atom.listeners.size === 0 && atom.children.length === 0) {
+    atomStates.delete(atomRef)
     for (const parentAtomRef of atom.parents) {
       const parentAtom = atomStates.get(parentAtomRef)
       parentAtom.children = parentAtom.children.filter((child) => {
@@ -141,33 +146,10 @@ function vacuum(atomStates, atomRef) {
           return child.count > 0
         }
       })
+      dispose(atomStates, parentAtomRef)
     }
-    atomStates.delete(atomRef)
   }
-  // TODO - do we need to recursively walk up to
-  // find parents that need to be cleared?
 }
-
-// TODO - remove
-// function unmount(atomStates, atomRef) {
-//   const atom = atomStates.get(atomRef)
-
-//   if (atom && !atom.dependents.length) {
-//     const dependencies = atom.dependencies
-
-//     // invoke getter to clear dependencies
-//     getter(atomStates, atomRef)
-
-//     // delete atom since nobody is using it anymore
-//     atomStates.delete(atomRef)
-
-//     // and walk the dependency tree down to
-//     // clean them up also
-//     dependencies.forEach((depRef) => {
-//       unmount(atomStates, depRef)
-//     })
-//   }
-// }
 
 function getSnapshot(atomStates, atomRef, arg) {
   const atom = init(atomStates, atomRef)
@@ -290,7 +272,7 @@ function subscribe(atomStates, atomRef, fn) {
   atom.listeners.add(fn)
   return function unsubscribe() {
     atom.listeners.delete(fn)
-    vacuum(atomStates, atomRef)
+    dispose(atomStates, atomRef)
   }
 }
 
