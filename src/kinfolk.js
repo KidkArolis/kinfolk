@@ -11,16 +11,16 @@ import React, {
 /**
   atomRef
   -------
-  When you create atom with atom(), you get a reference which we call atomRef
+  When you create an atom with atom(), you get a reference which we call atomRef
   internally in the implementation. We'll use atomRef as the key to store atom's
-  metadata such as initial state in atomMetas and atom's current state in the
-  Provider's context.
+  metadata such as initial state in atomMetas (global) and atom's current state
+  and dependencies in atomStates (Provider).
 
   atomMeta
   --------
   When we create an atom, we pass initial state and other config - we call
   this atomMeta and store in a global meta map keyed by a unique atomRef for
-  each atom created.
+  each atom (and selector) created.
 
   atomState
   ---------
@@ -48,8 +48,8 @@ const atomMetas = new WeakMap()
 const AtomContext = createContext()
 
 /**
- * A bit of machinery to allow subscribing
- * to atoms and selectors inside other selectors
+ * Machinery to allow reading and subscribing to atoms
+ * and selectors inside other selectors
  */
 const defaultGet = () => {
   throw new Error('Atom values can only be read inside selectors')
@@ -63,16 +63,19 @@ function withGetter(get, fn) {
   return val
 }
 
+let atomLabel = 0
+let selectorLabel = 0
+
 /**
  * Provider stores the state of the atoms to be shared
- * within the wrapped application or subtree.
+ * within the wrapped subtree.
  */
-export function Provider({ children, onMount }) {
+export function Provider({ children, getAtomStates }) {
   const [atomStates] = useState(() => new Map())
 
   useEffect(() => {
-    onMount && onMount(atomStates)
-  }, [onMount])
+    getAtomStates && getAtomStates(atomStates)
+  }, [atomStates, getAtomStates])
 
   return <AtomContext.Provider value={atomStates}>{children}</AtomContext.Provider>
 }
@@ -93,270 +96,265 @@ export function selector(selector, { label, equal } = {}) {
   return selectorRef
 }
 
-// export function selectorFamily(selectorFamily, { label, equal } = {}) {
-//   const selectorFamilyRef = Object.freeze(label ? { label } : {})
-//   const selectorFamilyMemo = new Map()
-//   const selectorFamilyMeta = { selectorFamily, equal, selectorFamilyMemo }
-//   atomMetas.set(selectorFamilyRef, selectorFamilyMeta)
+function init(atomStates, atomRef) {
+  if (!atomStates.has(atomRef)) {
+    const atomMeta = atomMetas.get(atomRef)
 
-//   return (...args) => {
-//     let sel = selectorFamilyMemo
-//     for (const arg of args) {
-//       if (sel) {
-//         sel = sel.get(arg)
-//       } else {
-//         sel = undefined
-//       }
-//     }
+    const atom = {
+      state: null,
+      listeners: new Set(),
+      parents: [],
+      children: [],
+      label: atomRef.label,
+    }
 
-//     if (sel) {
-//       return sel
-//     }
+    if (has(atomMeta, 'initialState')) {
+      atom.state = atomMeta.initialState
+    }
 
-//     sel = selector(selectorFamily(...args), { label, equal })
+    if (has(atomMeta, 'selector')) {
+      atom.selector = atomMeta.selector
+      atom.equal = atomMeta.equal || Object.is
+      atom.memo = new Map()
+      atom.dirty = new Map()
+      atom.label = atom.label || `selector-${++selectorLabel}`
+    } else {
+      atom.label = atom.label || `atom-${++atomLabel}`
+    }
 
-//     let l = selectorFamilyMemo
-//     for (let i = 0; i < args.length - 1; i++) {
-//       const arg = args[i]
-//       if (!l.has(arg)) {
-//         l.set(arg, new Map())
-//       }
-//       l = l.get(arg)
-//     }
-//     l.set(args[args.length - 1], sel)
+    atomStates.set(atomRef, atom)
+  }
 
-//     return sel
+  return atomStates.get(atomRef)
+}
+
+function vacuum(atomStates, atomRef) {
+  const atom = atomStates.get(atomRef)
+  if (isSelector(atom) && atom.listeners.size === 0 && atom.children.length === 0) {
+    for (const parentAtomRef of atom.parents) {
+      const parentAtom = atomStates.get(parentAtomRef)
+      parentAtom.children = parentAtom.children.filter((child) => {
+        if (child.atomRef !== atomRef) {
+          return true
+        } else {
+          child.count -= 1
+          return child.count > 0
+        }
+      })
+    }
+    atomStates.delete(atomRef)
+  }
+  // TODO - do we need to recursively walk up to
+  // find parents that need to be cleared?
+}
+
+// TODO - remove
+// function unmount(atomStates, atomRef) {
+//   const atom = atomStates.get(atomRef)
+
+//   if (atom && !atom.dependents.length) {
+//     const dependencies = atom.dependencies
+
+//     // invoke getter to clear dependencies
+//     getter(atomStates, atomRef)
+
+//     // delete atom since nobody is using it anymore
+//     atomStates.delete(atomRef)
+
+//     // and walk the dependency tree down to
+//     // clean them up also
+//     dependencies.forEach((depRef) => {
+//       unmount(atomStates, depRef)
+//     })
 //   }
 // }
 
-function mount(store, atomRef) {
-  // already mounted
-  if (store.has(atomRef)) {
-    return store.get(atomRef)
+function getSnapshot(atomStates, atomRef, arg) {
+  const atom = init(atomStates, atomRef)
+
+  if (!atom.selector) {
+    return atom.state
   }
 
-  const atomMeta = atomMetas.get(atomRef)
-  const atom = {
-    state: null,
-    listeners: new Set(),
-    dependents: [],
-    dependencies: [],
-    memo: new Map(),
-  }
-  if (atomRef.label) {
-    atom.label = atomRef.label
-  }
-  if (atomMeta.equal) {
-    atom.equal = atomMeta.equal
-  }
-  store.set(atomRef, atom)
-
-  if (has(atomMeta, 'initialState')) {
-    atom.state = atomMeta.initialState
+  const isDirty = !atom.dirty.has(arg) || atom.dirty.get(arg)
+  // TODO - mark as non dirty if deps are not dirty (once they've been recomputed)
+  // is that possible?! we don't know if we need count()
+  //
+  // inline <- count <- atom
+  if (isDirty) {
+    untrack(atomStates, atomRef)
+    const get = getter(atomStates, atomRef)
+    const val = withGetter(get, () => atom.selector(arg))
+    if (!atom.memo.has(arg) || !atom.equal(atom.memo.get(arg), val)) {
+      atom.memo.set(arg, val)
+    }
+    atom.dirty.set(arg, false)
   }
 
-  if (atomMeta.selector) {
-    atom.selector = atomMeta.selector
-    atom.state = select(store, atomRef)
-  }
-
-  // if (atomMeta.selectorFamily) {
-  //   atom.selectorFamily = atomMeta.selectorFamily
-  //   atom.state = select(store, atomRef)
-  // }
-
-  return store.get(atomRef)
+  return atom.memo.get(arg)
 }
 
-function unmount(store, atomRef) {
-  const atom = store.get(atomRef)
+// when recomputing the selector for this atom
+// we need to remove parent/children items since the new
+// selector might depend on a different set of atoms
+function untrack(atomStates, atomRef) {
+  const atom = atomStates.get(atomRef)
 
-  if (atom && !atom.dependents.length) {
-    const dependencies = atom.dependencies
-
-    // invoke getter to clear dependencies
-    getter(store, atomRef)
-
-    // delete atom since nobody is using it anymore
-    store.delete(atomRef)
-
-    // and walk the dependency tree down to
-    // clean them up also
-    dependencies.forEach((depRef) => {
-      unmount(store, depRef)
-    })
-  }
-}
-
-/**
- * Listen to atom changes
- */
-function subscribe(store, atomRef, fn) {
-  const atom = store.get(atomRef)
-  atom.listeners.add(fn)
-  return function unsubscribe() {
-    atom.listeners.delete(fn)
-  }
-}
-
-/**
- * Computes the selector, updates the dependency
- * graph in the store while doing so.
- */
-function select(store, atomRef) {
-  const atom = store.get(atomRef)
-  const get = getter(store, atomRef)
-
-  if (atom.selector) {
-    return withGetter(get, () => atom.selector())
-  }
-
-  // if (atom.selectorFamily) {
-  //   return atom.selectorFamily
-  // }
-}
-
-/**
- * Getter is how selectors can be used to construct
- * a memoised computations that are only updated
- * if the depdendencies update.
- */
-function getter(store, atomRef) {
-  // cleanup
-  const atom = store.get(atomRef)
-  for (const upstreamAtomRef of atom.dependencies) {
-    const upstreamAtom = store.get(upstreamAtomRef)
-    upstreamAtom.dependents = upstreamAtom.dependents.filter((dependent) => {
-      if (dependent.atomRef !== atomRef) {
+  for (const parentAtomRef of atom.parents) {
+    const parentAtom = atomStates.get(parentAtomRef)
+    parentAtom.children = parentAtom.children.filter((child) => {
+      if (child.atomRef !== atomRef) {
         return true
       } else {
-        dependent.count -= 1
-        return dependent.count > 0
+        child.count -= 1
+        return child.count > 0
       }
     })
   }
-  atom.dependencies = []
 
-  // provide a new getter that will re-track the dependencies
-  return (upstreamAtomRef, arg) => {
-    mount(store, upstreamAtomRef)
+  atom.parents = []
+}
+
+/**
+ * Getter reads atom's value, while also tracking
+ * dependencies on any parent atoms
+ */
+function getter(atomStates, atomRef) {
+  return (parentAtomRef, arg) => {
+    const atom = atomStates.get(atomRef)
+    const parentAtom = init(atomStates, parentAtomRef)
 
     // track dependencies
-    if (!atom.dependencies.includes(upstreamAtomRef)) {
-      atom.dependencies.push(upstreamAtomRef)
+    if (!atom.parents.includes(parentAtomRef)) {
+      atom.parents.push(parentAtomRef)
     }
 
-    // and dependents
-    const upstreamAtom = store.get(upstreamAtomRef)
-    const dependents = upstreamAtom.dependents
-    const existingDependent = dependents.find((d) => d.atomRef === atomRef)
-    if (existingDependent) {
-      existingDependent.count += 1
+    // and in reverse direction
+    const children = parentAtom.children
+    const existingChild = children.find((d) => d.atomRef === atomRef)
+    if (existingChild) {
+      // TODO is the count biz correct? we might call getSnapshot many times, etc.
+      // we should think of sub/unsub when considering dependencies
+      // in other words, deps are _computed_ during getSnapshot (and updated each time)
+      // but only _enacted_ during subscribe/unsubscribe
+      existingChild.count += 1
     } else {
-      upstreamAtom.dependents.push({ count: 1, atomRef })
+      parentAtom.children.push({ count: 1, atomRef })
     }
-    return upstreamAtom.state
+
+    return getSnapshot(atomStates, parentAtomRef, arg)
   }
 }
 
 /**
  * Notify listeners of atom's update
  */
-function notify(store, atomRef) {
-  const atom = store.get(atomRef)
+function notify(atomStates, atomRef) {
+  dirty(atomStates, atomRef)
+  // TODO recompute(atomStates, atomRef) ??
+  // but do so only if there are listeners?
+  // or tbh always, selectors don't exist if
+  // there aren't listeners :thinking:
+  // just need to handle families also...
+  // and trigger only if changed?
+  trigger(atomStates, atomRef)
+}
 
-  if (atom.selector) {
-    const curr = atom.state
-    atom.state = select(store, atomRef)
-    const eq = atom.equal || Object.is
-    if (eq(curr, atom.state)) return
-  }
+/**
+ * Mark all the cached values as dirty
+ */
+function dirty(atomStates, atomRef) {
+  const atom = atomStates.get(atomRef)
+  // TODO We shouldn't blow away the entire cache
+  // we could mark all as dirty
+  // and when getting snapshot.. if deps _are not dirty_
+  // we can mark ourselves as non dirty again
+  if (isSelector(atom)) atom.dirty = new Map()
+  atom.children.forEach((d) => dirty(atomStates, d.atomRef))
+}
 
+/**
+ * Call the listeners
+ */
+function trigger(atomStates, atomRef) {
+  const atom = atomStates.get(atomRef)
   atom.listeners.forEach((l) => l(atom.state))
-  atom.dependents.forEach((d) => notify(store, d.atomRef))
+  atom.children.forEach((d) => trigger(atomStates, d.atomRef))
+}
+
+/**
+ * Listen to atom changes
+ */
+function subscribe(atomStates, atomRef, fn) {
+  const atom = atomStates.get(atomRef)
+  atom.listeners.add(fn)
+  return function unsubscribe() {
+    atom.listeners.delete(fn)
+    vacuum(atomStates, atomRef)
+  }
 }
 
 /**
  * Hook to subscribe to atom/selector value
  */
 
-export function useSelector(atomOrSelectorFn, deps, equal) {
-  const store = useContext(AtomContext)
+export function useSelector(selectorFn, deps, equal) {
+  const atomStates = useContext(AtomContext)
 
   const atomRef = useMemo(() => {
-    return atomMetas.has(atomOrSelectorFn) ? atomOrSelectorFn : selector(atomOrSelectorFn, { equal })
+    return selector(selectorFn, { equal })
   }, deps)
 
-  const { sub, getSnapshot } = useMemo(() => {
-    const sub = (cb) => subscribe(store, atomRef, cb)
-    const getSnapshot = () => mount(store, atomRef).state
-    return { sub, getSnapshot }
-  }, [store, atomRef, atomOrSelectorFn])
+  const { subscribe_, getSnapshot_ } = useMemo(() => {
+    const subscribe_ = (cb) => subscribe(atomStates, atomRef, cb)
+    const getSnapshot_ = () => getSnapshot(atomStates, atomRef)
+    return { subscribe_, getSnapshot_ }
+  }, [atomStates, atomRef])
 
-  useEffect(() => {
-    return () => {
-      unmount(store, atomRef)
-    }
-  }, [atomRef])
-
-  return useSyncExternalStore(sub, getSnapshot)
+  return useSyncExternalStore(subscribe_, getSnapshot_)
 }
 
 /**
- * Hook to get a setter for updating atom
- */
-export function useSetter(atomRef) {
-  const store = useContext(AtomContext)
-
-  useEffect(() => {
-    mount(store, atomRef)
-    return () => {
-      unmount(store, atomRef)
-    }
-  }, [atomRef])
-
-  return (state) => {
-    const atom = store.get(atomRef)
-
-    const curr = atom.state
-
-    if (typeof state === 'function') {
-      atom.state = state(atom.state)
-    } else {
-      atom.state = state
-    }
-
-    if (curr !== atom.state) {
-      notify(store, atomRef)
-    }
-  }
-}
-
-/**
- * Hook to get a setter for updating atom
- * using the reducer pattern
+ * Hook for updating atom using a reducer
  */
 export function useReducer(atomRef, reducer) {
-  const store = useContext(AtomContext)
-
-  useEffect(() => {
-    mount(store, atomRef)
-    return () => {
-      unmount(store, atomRef)
-    }
-  }, [atomRef])
+  const atomStates = useContext(AtomContext)
 
   return useCallback(
-    (action) => {
-      const atom = store.get(atomRef)
+    function dispatch(action) {
+      const atom = init(atomStates, atomRef)
+
+      if (isSelector(atom)) {
+        throw new Error('Selectors can not be updated directly, update an atom instead')
+      }
+
       const curr = atom.state
       atom.state = reducer(atom.state, action)
       if (curr !== atom.state) {
-        notify(store, atomRef)
+        notify(atomStates, atomRef)
       }
     },
     [reducer]
   )
+}
+
+/**
+ * Hook for updating atom using a setter
+ */
+export function useSetter(atomRef) {
+  const set = useReducer(atomRef, (state, update) => {
+    if (typeof update === 'function') {
+      return update(state)
+    } else {
+      return update
+    }
+  })
+
+  return set
+}
+
+function isSelector(atom) {
+  return has(atom, 'selector')
 }
 
 function has(obj, key) {

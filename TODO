@@ -5,12 +5,12 @@ Primitives
 - [x] Provider
 - [x] useSetter(atom)
 - [x] useReducer(atom, reducer)
-- [ ] useSelector(select) - read atoms, selectors
+- [x] useSelector(select)
 
 Other
 - [x] check the render order, see if possible to avoid nested re-re-renders
 - [ ] useReducer test
-- [ ] rewrite useSetter using useReducer
+- [x] rewrite useSetter using useReducer
 - [ ] cleanup useSelector selectors when unmounting
 - [ ] cleanup atom state when unmounting
 - [ ] move selector family resolution and cache into provider tree, keep under get(fam, arg1, arg2, arg3)
