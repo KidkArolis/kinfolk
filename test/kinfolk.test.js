@@ -72,12 +72,12 @@ test('selector without atom being directly used', async (t) => {
 })
 
 test('unmounting unused atoms', async (t) => {
-  const counter1 = atom(1, { label: 'counter1' })
-  const counter2 = atom(2, { label: 'counter2' })
-  const double = selector(() => counter1() * 2, { label: 'double' })
+  const counter1 = atom(1, { label: 'counter-1' })
+  const counter2 = atom(2, { label: 'counter-2' })
+  const double = selector(() => counter1() * 2, { label: 'counter-1-double' })
 
   function Counter({ id, atom }) {
-    const val = useSelector(atom)
+    const val = useSelector(() => atom(), [atom], undefined, `component-${id}`)
     return <div className={`content-${id}`}>{val}</div>
   }
 
@@ -114,44 +114,57 @@ test('unmounting unused atoms', async (t) => {
   const mounted = () => getState(store).map((a) => a.label)
 
   t.is(container.querySelector('.step').innerHTML, '0')
-
   t.is(container.querySelector('.content-1').innerHTML, '1')
   t.is(container.querySelector('.content-2').innerHTML, '2')
   t.is(container.querySelector('.content-3').innerHTML, '2')
-  console.log(getState(store))
-  t.deepEqual(mounted(), ['counter1', 'counter2', 'double'])
+  // at first 3 counter components are mounted
+  // and both counter atoms
+  // and the double selector
+  t.deepEqual(mounted(), ['component-1', 'counter-1', 'component-2', 'counter-2', 'component-3', 'counter-1-double'])
 
-  // fireEvent.click(container.querySelector('button'))
+  fireEvent.click(container.querySelector('button'))
 
-  // t.is(container.querySelector('.step').innerHTML, '1')
-  // t.is(container.querySelector('.content-1'), null)
-  // t.is(container.querySelector('.content-2').innerHTML, '2')
-  // t.is(container.querySelector('.content-3').innerHTML, '2')
-  // t.deepEqual(mounted(), ['counter1', 'counter2', 'double'])
+  t.is(container.querySelector('.step').innerHTML, '1')
+  t.is(container.querySelector('.content-1'), null)
+  t.is(container.querySelector('.content-2').innerHTML, '2')
+  t.is(container.querySelector('.content-3').innerHTML, '2')
+  // here we unmounted the useSelector of component-1
+  // but the 2 atoms and selector are still mounted
+  t.deepEqual(mounted(), ['counter-1', 'component-2', 'counter-2', 'component-3', 'counter-1-double'])
 
-  // fireEvent.click(container.querySelector('button'))
+  fireEvent.click(container.querySelector('button'))
 
-  // t.is(container.querySelector('.step').innerHTML, '2')
-  // t.is(container.querySelector('.content-1'), null)
-  // t.is(container.querySelector('.content-2'), null)
-  // t.is(container.querySelector('.content-3').innerHTML, '2')
-  // t.deepEqual(mounted(), ['counter1', 'double'])
+  t.is(container.querySelector('.step').innerHTML, '2')
+  t.is(container.querySelector('.content-1'), null)
+  t.is(container.querySelector('.content-2'), null)
+  t.is(container.querySelector('.content-3').innerHTML, '2')
+  // here we unmounted component-2 as well
+  // but the 2 atoms and selector are still mounted
+  // because we never unmount atoms, they're permanent state
+  // but we did unmount the component-2 selector
+  t.deepEqual(mounted(), ['counter-1', 'counter-2', 'component-3', 'counter-1-double'])
 
-  // fireEvent.click(container.querySelector('button'))
+  fireEvent.click(container.querySelector('button'))
 
-  // t.is(container.querySelector('.step').innerHTML, '3')
-  // t.is(container.querySelector('.content-1'), null)
-  // t.is(container.querySelector('.content-2'), null)
-  // t.is(container.querySelector('.content-3'), null)
-  // t.deepEqual(mounted(), [])
+  t.is(container.querySelector('.step').innerHTML, '3')
+  t.is(container.querySelector('.content-1'), null)
+  t.is(container.querySelector('.content-2'), null)
+  t.is(container.querySelector('.content-3'), null)
+  // finally, since no components need the state anymore
+  // we've unmounted not only component useSelectors but also
+  // the double selector
+  // atoms remain mounted permanently
+  t.deepEqual(mounted(), ['counter-1', 'counter-2'])
 
-  // fireEvent.click(container.querySelector('button'))
+  fireEvent.click(container.querySelector('button'))
 
-  // t.is(container.querySelector('.content-1'), null)
-  // t.is(container.querySelector('.content-2'), null)
-  // t.is(container.querySelector('.content-3'), null)
-  // t.is(container.querySelector('.content-4').innerHTML, '4')
-  // t.deepEqual(mounted(), ['double', 'counter1'])
+  t.is(container.querySelector('.step').innerHTML, '4')
+  t.is(container.querySelector('.content-1'), null)
+  t.is(container.querySelector('.content-2'), null)
+  t.is(container.querySelector('.content-3'), null)
+  t.is(container.querySelector('.content-4').innerHTML, '4')
+  // this is remounting the double selector
+  t.deepEqual(mounted(), ['counter-1', 'counter-2', 'component-4', 'counter-1-double'])
 })
 
 test('inline selector', async (t) => {
@@ -189,14 +202,14 @@ test('inline selector', async (t) => {
   t.is(container.querySelector('.content-1').innerHTML, '4')
   t.deepEqual(
     mounted().map((a) => a.replace(/-\d+$/g, '-X')),
-    ['atom-X', 'counter']
+    ['selector-X', 'counter']
   )
 
   fireEvent.click(container.querySelector('button'))
   t.is(container.querySelector('.content-1').innerHTML, '6')
   t.deepEqual(
     mounted().map((a) => a.replace(/-\d+$/g, '-X')),
-    ['counter', 'atom-X']
+    ['counter', 'selector-X']
   )
 })
 
@@ -278,9 +291,9 @@ test('useSelector for reading data cache allows optimal re-renders', async (t) =
   t.is(container.querySelector('.item-2').innerHTML, 'bar-2: 4')
 })
 
-test.skip('useSelector only recomputes if dependencies change', async (t) => {
+test('useSelector only recomputes if dependencies change', async (t) => {
   const counter = atom({ count: 0, unrelated: 0 }, { label: 'cache' })
-  const count = selector(() => counter().count)
+  const count = selector(() => counter().count, { label: 'sel-count' })
 
   function App() {
     return (
@@ -296,7 +309,12 @@ test.skip('useSelector only recomputes if dependencies change', async (t) => {
   function Button({ name }) {
     const setCounter = useSetter(counter)
     return (
-      <button className={`button-${name}`} onClick={() => setCounter((s) => ({ ...s, [name]: s[name] + 1 }))}>
+      <button
+        className={`button-${name}`}
+        onClick={() => {
+          setCounter((s) => ({ ...s, [name]: s[name] + 1 }))
+        }}
+      >
         Next step
       </button>
     )
@@ -306,14 +324,18 @@ test.skip('useSelector only recomputes if dependencies change', async (t) => {
     const renders = useRef(0)
     renders.current += 1
 
-    const items = useSelector(() => {
-      if (id === 1) {
-        return [1, 2, 3]
-      } else {
-        console.log('Recomputing!? But not dirty!?')
-        return [count(), count(), count()]
-      }
-    }, [id])
+    const items = useSelector(
+      () => {
+        if (id === 1) {
+          return [1, 2, 3]
+        } else {
+          return [count(), count(), count()]
+        }
+      },
+      [id],
+      undefined,
+      'sel-item' + id
+    )
 
     return (
       <div className={`item-${id}`}>
@@ -332,29 +354,27 @@ test.skip('useSelector only recomputes if dependencies change', async (t) => {
   t.is(container.querySelector('.item-2').innerHTML, '0,0,0: 1')
 
   fireEvent.click(container.querySelector('.button-unrelated'))
-  fireEvent.click(container.querySelector('.button-unrelated'))
-
   t.is(container.querySelector('.item-1').innerHTML, '1,2,3: 1')
   t.is(container.querySelector('.item-2').innerHTML, '0,0,0: 1')
 
-  // fireEvent.click(container.querySelector('.button-count'))
+  fireEvent.click(container.querySelector('.button-count'))
 
-  // t.is(container.querySelector('.item-1').innerHTML, '1,2,3: 1')
-  // t.is(container.querySelector('.item-2').innerHTML, '1,1,1: 2')
+  t.is(container.querySelector('.item-1').innerHTML, '1,2,3: 1')
+  t.is(container.querySelector('.item-2').innerHTML, '1,1,1: 2')
 
-  // fireEvent.click(container.querySelector('.button-count'))
-  // fireEvent.click(container.querySelector('.button-count'))
-  // fireEvent.click(container.querySelector('.button-unrelated'))
-  // fireEvent.click(container.querySelector('.button-unrelated'))
+  fireEvent.click(container.querySelector('.button-count'))
+  fireEvent.click(container.querySelector('.button-count'))
+  fireEvent.click(container.querySelector('.button-unrelated'))
+  fireEvent.click(container.querySelector('.button-unrelated'))
 
-  // t.is(container.querySelector('.item-1').innerHTML, '1,2,3: 1')
-  // t.is(container.querySelector('.item-2').innerHTML, '3,3,3: 4')
+  t.is(container.querySelector('.item-1').innerHTML, '1,2,3: 1')
+  t.is(container.querySelector('.item-2').innerHTML, '3,3,3: 4')
 
-  // fireEvent.click(container.querySelector('.button-unrelated'))
-  // fireEvent.click(container.querySelector('.button-unrelated'))
+  fireEvent.click(container.querySelector('.button-unrelated'))
+  fireEvent.click(container.querySelector('.button-unrelated'))
 
-  // t.is(container.querySelector('.item-1').innerHTML, '1,2,3: 1')
-  // t.is(container.querySelector('.item-2').innerHTML, '3,3,3: 4')
+  t.is(container.querySelector('.item-1').innerHTML, '1,2,3: 1')
+  t.is(container.querySelector('.item-2').innerHTML, '3,3,3: 4')
 })
 
 test.skip('selectorFamily', async (t) => {

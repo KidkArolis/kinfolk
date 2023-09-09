@@ -32,7 +32,7 @@ import React, {
   atom() -> atomRef
   atomMetas: atomRef -> atomMeta (global)
   atomStates: atomRef -> atomState (per Provider)
- 
+
  */
 
 /**
@@ -54,13 +54,16 @@ const AtomContext = createContext()
 const defaultGet = () => {
   throw new Error('Atom values can only be read inside selectors')
 }
+let __inputs = []
 const __getters = [defaultGet]
 const __get = (...args) => __getters[__getters.length - 1](...args)
 function withGetter(get, fn) {
   __getters.push(get)
   const val = fn()
+  const inputs = [...__inputs]
+  __inputs = []
   __getters.pop()
-  return val
+  return [val, inputs]
 }
 
 let atomLabel = 0
@@ -88,10 +91,10 @@ export function atom(initialState, { label } = {}) {
   return atomRef
 }
 
-export function selector(selector, { label, equal } = {}) {
+export function selector(selectorFn, { label, equal } = {}) {
   const selectorRef = (arg) => __get(selectorRef, arg)
   if (label) selectorRef.label = label
-  const selectorMeta = { selector, equal }
+  const selectorMeta = { selectorFn, equal }
   atomMetas.set(selectorRef, selectorMeta)
   return selectorRef
 }
@@ -103,8 +106,8 @@ function init(atomStates, atomRef) {
     const atom = {
       state: null,
       listeners: new Set(),
-      parents: [],
-      children: [],
+      parents: new Set(),
+      children: new Set(),
       label: atomRef.label,
     }
 
@@ -112,11 +115,10 @@ function init(atomStates, atomRef) {
       atom.state = atomMeta.initialState
     }
 
-    if (has(atomMeta, 'selector')) {
-      atom.selector = atomMeta.selector
+    if (has(atomMeta, 'selectorFn')) {
+      atom.selectorFn = atomMeta.selectorFn
       atom.equal = atomMeta.equal || Object.is
       atom.memo = new Map()
-      atom.dirty = new Map()
       atom.label = atom.label || `selector-${++selectorLabel}`
     } else {
       atom.label = atom.label || `atom-${++atomLabel}`
@@ -134,18 +136,11 @@ function init(atomStates, atomRef) {
  */
 function dispose(atomStates, atomRef) {
   const atom = atomStates.get(atomRef)
-  if (isSelector(atom) && atom.listeners.size === 0 && atom.children.length === 0) {
+  if (isSelector(atom) && atom.listeners.size === 0 && atom.children.size === 0) {
     atomStates.delete(atomRef)
     for (const parentAtomRef of atom.parents) {
       const parentAtom = atomStates.get(parentAtomRef)
-      parentAtom.children = parentAtom.children.filter((child) => {
-        if (child.atomRef !== atomRef) {
-          return true
-        } else {
-          child.count -= 1
-          return child.count > 0
-        }
-      })
+      parentAtom.children.delete(atomRef)
       dispose(atomStates, parentAtomRef)
     }
   }
@@ -154,26 +149,47 @@ function dispose(atomStates, atomRef) {
 function getSnapshot(atomStates, atomRef, arg) {
   const atom = init(atomStates, atomRef)
 
-  if (!atom.selector) {
+  if (!atom.selectorFn) {
     return atom.state
   }
 
-  const isDirty = !atom.dirty.has(arg) || atom.dirty.get(arg)
-  // TODO - mark as non dirty if deps are not dirty (once they've been recomputed)
-  // is that possible?! we don't know if we need count()
-  //
-  // inline <- count <- atom
-  if (isDirty) {
+  if (isDirty(atomStates, atomRef, arg)) {
+    // TODO - combine untrack, getter and withGetter into 1 func
     untrack(atomStates, atomRef)
     const get = getter(atomStates, atomRef)
-    const val = withGetter(get, () => atom.selector(arg))
-    if (!atom.memo.has(arg) || !atom.equal(atom.memo.get(arg), val)) {
-      atom.memo.set(arg, val)
+    let [value, inputs] = withGetter(get, () => atom.selectorFn(arg))
+    if (atom.memo.has(arg) && atom.equal(atom.memo.get(arg).value, value)) {
+      value = atom.memo.get(arg).value
     }
-    atom.dirty.set(arg, false)
+    atom.memo.set(arg, { inputs, value })
   }
 
-  return atom.memo.get(arg)
+  return atom.memo.get(arg).value
+}
+
+/**
+ * Given a selector, check if we need to recompute
+ * it's value, which is the case if:
+ * - nothing is memoised yet
+ * - inputs changed since the last time
+ */
+function isDirty(atomStates, atomRef, arg) {
+  const atom = init(atomStates, atomRef)
+
+  if (!atom.memo.has(arg)) {
+    return true
+  }
+
+  const { inputs } = atom.memo.get(arg)
+
+  for (const input of inputs) {
+    const inputValue = getSnapshot(atomStates, input.atomRef, input.arg)
+    if (inputValue !== input.value) {
+      return true
+    }
+  }
+
+  return false
 }
 
 // when recomputing the selector for this atom
@@ -181,20 +197,11 @@ function getSnapshot(atomStates, atomRef, arg) {
 // selector might depend on a different set of atoms
 function untrack(atomStates, atomRef) {
   const atom = atomStates.get(atomRef)
-
   for (const parentAtomRef of atom.parents) {
     const parentAtom = atomStates.get(parentAtomRef)
-    parentAtom.children = parentAtom.children.filter((child) => {
-      if (child.atomRef !== atomRef) {
-        return true
-      } else {
-        child.count -= 1
-        return child.count > 0
-      }
-    })
+    parentAtom.children.delete(atomRef)
   }
-
-  atom.parents = []
+  atom.parents.clear()
 }
 
 /**
@@ -204,27 +211,16 @@ function untrack(atomStates, atomRef) {
 function getter(atomStates, atomRef) {
   return (parentAtomRef, arg) => {
     const atom = atomStates.get(atomRef)
+
+    // track the dependency tree
     const parentAtom = init(atomStates, parentAtomRef)
+    atom.parents.add(parentAtomRef)
+    parentAtom.children.add(atomRef)
 
-    // track dependencies
-    if (!atom.parents.includes(parentAtomRef)) {
-      atom.parents.push(parentAtomRef)
-    }
-
-    // and in reverse direction
-    const children = parentAtom.children
-    const existingChild = children.find((d) => d.atomRef === atomRef)
-    if (existingChild) {
-      // TODO is the count biz correct? we might call getSnapshot many times, etc.
-      // we should think of sub/unsub when considering dependencies
-      // in other words, deps are _computed_ during getSnapshot (and updated each time)
-      // but only _enacted_ during subscribe/unsubscribe
-      existingChild.count += 1
-    } else {
-      parentAtom.children.push({ count: 1, atomRef })
-    }
-
-    return getSnapshot(atomStates, parentAtomRef, arg)
+    // compute the value and keep track of inputs
+    const value = getSnapshot(atomStates, parentAtomRef, arg)
+    __inputs.push({ atomRef: parentAtomRef, arg, value })
+    return value
   }
 }
 
@@ -232,43 +228,16 @@ function getter(atomStates, atomRef) {
  * Notify listeners of atom's update
  */
 function notify(atomStates, atomRef) {
-  dirty(atomStates, atomRef)
-  // TODO recompute(atomStates, atomRef) ??
-  // but do so only if there are listeners?
-  // or tbh always, selectors don't exist if
-  // there aren't listeners :thinking:
-  // just need to handle families also...
-  // and trigger only if changed?
-  trigger(atomStates, atomRef)
-}
-
-/**
- * Mark all the cached values as dirty
- */
-function dirty(atomStates, atomRef) {
   const atom = atomStates.get(atomRef)
-  // TODO We shouldn't blow away the entire cache
-  // we could mark all as dirty
-  // and when getting snapshot.. if deps _are not dirty_
-  // we can mark ourselves as non dirty again
-  if (isSelector(atom)) atom.dirty = new Map()
-  atom.children.forEach((d) => dirty(atomStates, d.atomRef))
-}
-
-/**
- * Call the listeners
- */
-function trigger(atomStates, atomRef) {
-  const atom = atomStates.get(atomRef)
-  atom.listeners.forEach((l) => l(atom.state))
-  atom.children.forEach((d) => trigger(atomStates, d.atomRef))
+  atom.listeners.forEach((l) => l())
+  atom.children.forEach((childRef) => notify(atomStates, childRef))
 }
 
 /**
  * Listen to atom changes
  */
 function subscribe(atomStates, atomRef, fn) {
-  const atom = atomStates.get(atomRef)
+  const atom = init(atomStates, atomRef)
   atom.listeners.add(fn)
   return function unsubscribe() {
     atom.listeners.delete(fn)
@@ -280,11 +249,11 @@ function subscribe(atomStates, atomRef, fn) {
  * Hook to subscribe to atom/selector value
  */
 
-export function useSelector(selectorFn, deps, equal) {
+export function useSelector(selectorFn, deps, equal, label) {
   const atomStates = useContext(AtomContext)
 
   const atomRef = useMemo(() => {
-    return selector(selectorFn, { equal })
+    return selector(selectorFn, { equal, label })
   }, deps)
 
   const { subscribe_, getSnapshot_ } = useMemo(() => {
@@ -336,7 +305,7 @@ export function useSetter(atomRef) {
 }
 
 function isSelector(atom) {
-  return has(atom, 'selector')
+  return has(atom, 'selectorFn')
 }
 
 function has(obj, key) {
