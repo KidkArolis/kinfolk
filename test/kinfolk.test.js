@@ -377,13 +377,13 @@ test('useSelector only recomputes if dependencies change', async (t) => {
   t.is(container.querySelector('.item-2').innerHTML, '3,3,3: 4')
 })
 
-test.skip('selectorFamily', async (t) => {
-  const counter = atom(21)
-  const times = selectorFamily((multi) => () => counter() * multi)
+test('selector family', async (t) => {
+  const counter = atom(21, { label: 'counter' })
+  const times = selector((multi) => counter() * multi, { label: 'times' })
 
   function App() {
-    const double = useSelector(times(2))
-    const triple = useSelector(times(3))
+    const double = useSelector(() => times(2), [], undefined, 'double')
+    const triple = useSelector(() => times(3), [], undefined, 'triple')
 
     return (
       <div>
@@ -400,42 +400,22 @@ test.skip('selectorFamily', async (t) => {
     </Provider>
   )
 
-  t.is(container.querySelector('.content-1').innerHTML, '42')
-  t.is(container.querySelector('.content-2').innerHTML, '63')
-
-  unmount()
-  t.deepEqual(getState(store), [])
-})
-
-test.skip('selector family', async (t) => {
-  const counter = atom(21)
-  const times = selector((multi) => counter() * multi)
-
-  function App() {
-    const double = useSelector(() => times(2))
-    const triple = useSelector(() => times(3))
-
-    return (
-      <div>
-        <div className='content-1'>{double}</div>
-        <div className='content-2'>{triple}</div>
-      </div>
-    )
-  }
-
-  let store
-  const { container, unmount } = render(
-    <Provider getAtomStates={(store_, getState_) => (store = store_)}>
-      <App />
-    </Provider>
-  )
+  t.deepEqual(mounted(store), ['double', 'times', 'counter', 'triple'])
 
   t.is(container.querySelector('.content-1').innerHTML, '42')
   t.is(container.querySelector('.content-2').innerHTML, '63')
 
+  const timesAtom = Array.from(store.values()).find((a) => a.label === 'times')
+  t.deepEqual(Array.from(timesAtom.memo.keys()), [2, 3])
+
   unmount()
-  t.deepEqual(getState(store), [])
+
+  t.deepEqual(mounted(store), ['counter'])
 })
+
+function mounted(atomStates) {
+  return getState(atomStates).map((a) => a.label)
+}
 
 function getState(atomStates) {
   return Array.from(atomStates.values())
