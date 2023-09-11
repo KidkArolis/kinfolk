@@ -29,5 +29,5 @@ ReactDOM.render(
   <Provider>
     <App />
   </Provider>,
-  document.querySelector('#root')
+  document.querySelector('#root'),
 )

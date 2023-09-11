@@ -136,7 +136,11 @@ function init(atomStates, atomRef) {
  */
 function dispose(atomStates, atomRef) {
   const atom = atomStates.get(atomRef)
-  if (isSelector(atom) && atom.listeners.size === 0 && atom.children.size === 0) {
+  if (
+    isSelector(atom) &&
+    atom.listeners.size === 0 &&
+    atom.children.size === 0
+  ) {
     atomStates.delete(atomRef)
     for (const parentAtomRef of atom.parents) {
       const parentAtom = atomStates.get(parentAtomRef)
@@ -276,7 +280,9 @@ export function useReducer(atomRef, reducer) {
       const atom = init(atomStates, atomRef)
 
       if (isSelector(atom)) {
-        throw new Error('Selectors can not be updated directly, update an atom instead')
+        throw new Error(
+          'Selectors can not be updated directly, update an atom instead',
+        )
       }
 
       const curr = atom.state
@@ -285,7 +291,7 @@ export function useReducer(atomRef, reducer) {
         notify(atomStates, atomRef)
       }
     },
-    [reducer]
+    [reducer],
   )
 }
 

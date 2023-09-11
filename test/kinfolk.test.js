@@ -41,7 +41,7 @@ test('basic atom and selector', async (t) => {
   const { container } = render(
     <Provider>
       <App />
-    </Provider>
+    </Provider>,
   )
 
   t.is(container.querySelector('.content-1').innerHTML, '0')
@@ -71,7 +71,7 @@ test('selector without atom being directly used', async (t) => {
   const { container } = render(
     <Provider>
       <App />
-    </Provider>
+    </Provider>,
   )
 
   t.is(container.querySelector('.content-1').innerHTML, '42')
@@ -114,7 +114,7 @@ test('unmounting unused atoms', async (t) => {
   const { container } = render(
     <Provider getAtomStates={(store_) => (store = store_)}>
       <App />
-    </Provider>
+    </Provider>,
   )
 
   const mounted = () => getState(store).map((a) => a.label)
@@ -225,7 +225,7 @@ test('inline selector', async (t) => {
   const { container } = render(
     <Provider getAtomStates={(store_) => (store = store_)}>
       <App />
-    </Provider>
+    </Provider>,
   )
 
   const mounted = () => getState(store).map((a) => a.label)
@@ -233,14 +233,14 @@ test('inline selector', async (t) => {
   t.is(container.querySelector('.content-1').innerHTML, '4')
   t.deepEqual(
     mounted().map((a) => a.replace(/-\d+$/g, '-X')),
-    ['selector-X', 'counter']
+    ['selector-X', 'counter'],
   )
 
   fireEvent.click(container.querySelector('button'))
   t.is(container.querySelector('.content-1').innerHTML, '6')
   t.deepEqual(
     mounted().map((a) => a.replace(/-\d+$/g, '-X')),
-    ['counter', 'selector-X']
+    ['counter', 'selector-X'],
   )
 })
 
@@ -252,7 +252,7 @@ test('useSelector for reading data cache allows optimal re-renders', async (t) =
         2: { id: 2, name: 'bar' },
       },
     },
-    { label: 'cache' }
+    { label: 'cache' },
   )
 
   function App() {
@@ -305,7 +305,7 @@ test('useSelector for reading data cache allows optimal re-renders', async (t) =
   const { container } = render(
     <Provider>
       <App />
-    </Provider>
+    </Provider>,
   )
 
   t.is(container.querySelector('.item-1').innerHTML, 'foo: 1')
@@ -365,7 +365,7 @@ test('useSelector only recomputes if dependencies change', async (t) => {
       },
       [id],
       undefined,
-      'sel-item' + id
+      'sel-item' + id,
     )
 
     return (
@@ -378,7 +378,7 @@ test('useSelector only recomputes if dependencies change', async (t) => {
   const { container } = render(
     <Provider>
       <App />
-    </Provider>
+    </Provider>,
   )
 
   t.is(container.querySelector('.item-1').innerHTML, '1,2,3: 1')
@@ -428,7 +428,7 @@ test('selector family', async (t) => {
   const { container, unmount } = render(
     <Provider getAtomStates={(store_, getState_) => (store = store_)}>
       <App />
-    </Provider>
+    </Provider>,
   )
 
   t.deepEqual(mounted(store), ['double', 'times', 'counter', 'triple'])
