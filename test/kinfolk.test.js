@@ -1,8 +1,14 @@
 import test from 'ava'
 import { JSDOM } from 'jsdom'
-import { render, fireEvent, waitFor, screen, cleanup } from '@testing-library/react'
+import { render, fireEvent, cleanup } from '@testing-library/react'
 import React, { useState, useEffect, useRef } from 'react'
-import { Provider, atom, selector, selectorFamily, useValue, useSetter, useSelector } from '../src/kinfolk'
+import {
+  Provider,
+  atom,
+  selector,
+  useSetter,
+  useSelector,
+} from '../src/kinfolk'
 
 const dom = new JSDOM('<!doctype html><div id="root"></div>')
 global.window = dom.window
@@ -120,7 +126,14 @@ test('unmounting unused atoms', async (t) => {
   // at first 3 counter components are mounted
   // and both counter atoms
   // and the double selector
-  t.deepEqual(mounted(), ['component-1', 'counter-1', 'component-2', 'counter-2', 'component-3', 'counter-1-double'])
+  t.deepEqual(mounted(), [
+    'component-1',
+    'counter-1',
+    'component-2',
+    'counter-2',
+    'component-3',
+    'counter-1-double',
+  ])
 
   fireEvent.click(container.querySelector('button'))
 
@@ -130,7 +143,13 @@ test('unmounting unused atoms', async (t) => {
   t.is(container.querySelector('.content-3').innerHTML, '2')
   // here we unmounted the useSelector of component-1
   // but the 2 atoms and selector are still mounted
-  t.deepEqual(mounted(), ['counter-1', 'component-2', 'counter-2', 'component-3', 'counter-1-double'])
+  t.deepEqual(mounted(), [
+    'counter-1',
+    'component-2',
+    'counter-2',
+    'component-3',
+    'counter-1-double',
+  ])
 
   fireEvent.click(container.querySelector('button'))
 
@@ -142,7 +161,12 @@ test('unmounting unused atoms', async (t) => {
   // but the 2 atoms and selector are still mounted
   // because we never unmount atoms, they're permanent state
   // but we did unmount the component-2 selector
-  t.deepEqual(mounted(), ['counter-1', 'counter-2', 'component-3', 'counter-1-double'])
+  t.deepEqual(mounted(), [
+    'counter-1',
+    'counter-2',
+    'component-3',
+    'counter-1-double',
+  ])
 
   fireEvent.click(container.querySelector('button'))
 
@@ -164,7 +188,12 @@ test('unmounting unused atoms', async (t) => {
   t.is(container.querySelector('.content-3'), null)
   t.is(container.querySelector('.content-4').innerHTML, '4')
   // this is remounting the double selector
-  t.deepEqual(mounted(), ['counter-1', 'counter-2', 'component-4', 'counter-1-double'])
+  t.deepEqual(mounted(), [
+    'counter-1',
+    'counter-2',
+    'component-4',
+    'counter-1-double',
+  ])
 })
 
 test('inline selector', async (t) => {
@@ -174,7 +203,9 @@ test('inline selector', async (t) => {
     const [multiplier, setMultiplier] = useState(2)
     return (
       <div>
-        <button onClick={() => setMultiplier((m) => m + 1)}>Increment multiplier</button>
+        <button onClick={() => setMultiplier((m) => m + 1)}>
+          Increment multiplier
+        </button>
         <Content multiplier={multiplier} />
       </div>
     )

@@ -7,10 +7,12 @@
     "src": "src"
   },
   "scripts": {
-    "test": "ava",
+    "test": "npm run lint && ava",
+    "lint": "healthier && prettier --check '**/*.js'",
+    "format": "prettier --format '**/*.js'",
     "coverage": "nyc --reporter html ava"
   },
-  "author": "Karolis Narkevicius",
+  "author": "Karolis Narkevicius <hey@k8.lt>",
   "license": "ISC",
   "devDependencies": {
     "@swc/core": "^1.3.60",

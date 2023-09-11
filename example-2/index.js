@@ -1,37 +1,53 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
-import { Provider, atom, reducer, selector, selectorFamily, useValue, useSetter, useSelector, useReducer } from '../src'
+import {
+  Provider,
+  atom,
+  selector,
+  useSelector,
+  useSetter,
+  useReducer,
+} from '../src/kinfolk.js'
 import './styles.css'
 
 // atoms
 const counter = atom(0)
 
 // selectors
-const double = selector((get) => get(counter) * 2)
+const double = selector(() => counter() * 2)
 
-// selector family
-const times = selectorFamily((t) => (get) => get(counter) * t)
+// selector families
+const times = selector((t) => counter() * t)
 
 // updates
 const increment = (state, payload) => state + 1
 
 function App() {
   // selecting atom
-  const val = useValue(counter)
+  const val = useSelector(() => counter(), [])
 
   // selecting selector
-  const dub = useValue(double)
+  const dub = useSelector(() => double(), [])
 
-  // inline selector
-  const trip = useSelector((get) => get(counter) * 3 + dub, [dub])
+  // selecting selector family
+  const tim4 = useSelector(() => times(4), [])
+  const tim5 = useSelector(() => times(5), [])
+
+  // selector with deps
+  const trip = useSelector(() => counter() * 3 + dub, [dub])
 
   // reducer
   const inc = useReducer(counter, increment)
 
   return (
     <div>
-      Value: {val} / {dub} / {trip} <button onClick={() => inc()}>Increment</button>
-      {val > 3 ? null : <Nesting />}
+      <div className='box'>
+        <div>
+          Value: {val} / {dub} / {trip} / {tim4} / {tim5}
+        </div>
+        <button onClick={() => inc()}>Increment</button>
+      </div>
+      <div className='box'>{val > 3 ? null : <Nesting />}</div>
     </div>
   )
 }
@@ -39,7 +55,7 @@ function App() {
 const nested = atom(Math.random())
 
 function Nesting() {
-  const val = useValue(nested)
+  const val = useSelector(() => nested())
   console.log('Rendering <Nesting />')
   return (
     <div>
@@ -50,7 +66,7 @@ function Nesting() {
 }
 
 function NestedChild1() {
-  const val = useValue(nested)
+  const val = useSelector(() => nested())
   console.log('Rendering <NestedChild2 />')
   return (
     <div>
@@ -61,7 +77,7 @@ function NestedChild1() {
 }
 
 function NestedChild2() {
-  const val = useValue(nested)
+  const val = useSelector(() => nested())
   const update = useSetter(nested)
   console.log('Rendering <NestedChild2 />')
   return (

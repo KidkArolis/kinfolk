@@ -4,12 +4,15 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "jetpack"
   },
-  "author": "",
+  "author": "Karolis Narkevicius <hey@k8.lt>",
   "license": "ISC",
   "dependencies": {
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
+  },
+  "devDependencies": {
+    "jetpack": "^1.2.1"
   }
 }
