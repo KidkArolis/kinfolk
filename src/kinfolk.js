@@ -29,9 +29,9 @@ import React, {
 
   In summary, we have:
 
-  atom() -> atomRef
-  atomMetas: atomRef -> atomMeta (global)
-  atomStates: atomRef -> atomState (per Provider)
+  - calling atom() returns an atomRef
+  - atomMetas is a map of atomRef -> atomMeta (global)
+  - atomStates is a map of atomRef -> atomState (per Provider)
 
  */
 
@@ -47,29 +47,54 @@ const atomMetas = new WeakMap()
  */
 const AtomContext = createContext()
 
+/*
+ * Indices for default atom and selector labeling
+ */
+let atomLabel = 0
+let selectorLabel = 0
+
 /**
  * Machinery to allow reading and subscribing to atoms
  * and selectors inside other selectors
  */
 const defaultGet = () => assert(false, 'Atoms can only be read in selectors')
-let __inputs = []
 const __getters = [defaultGet]
 const __get = (...args) => __getters[__getters.length - 1](...args)
 
-function evaluateSelectorFn(atomStates, atomRef, fn) {
-  untrack(atomStates, atomRef)
-  const get = getter(atomStates, atomRef)
-
+function withGetter(get, fn) {
   __getters.push(get)
   const val = fn()
-  const inputs = [...__inputs]
-  __inputs = []
   __getters.pop()
-  return [val, inputs]
+  return val
 }
 
-let atomLabel = 0
-let selectorLabel = 0
+function evaluateSelectorFn(atomStates, atomRef, arg) {
+  const atom = atomStates.get(atomRef)
+
+  // untrack the dependencies of this atom
+  for (const parentAtomRef of atom.parents) {
+    const parentAtom = atomStates.get(parentAtomRef)
+    parentAtom.children.delete(atomRef)
+  }
+  atom.parents.clear()
+
+  // create a getter able to track the dependencies
+  const inputs = []
+  const get = (parentAtomRef, arg) => {
+    // track the dependency tree
+    const parentAtom = init(atomStates, parentAtomRef)
+    atom.parents.add(parentAtomRef)
+    parentAtom.children.add(atomRef)
+
+    // compute the value and keep track of inputs
+    const value = getSnapshot(atomStates, parentAtomRef, arg)
+    inputs.push({ atomRef: parentAtomRef, arg, value })
+    return value
+  }
+  const val = withGetter(get, () => atom.selectorFn(arg))
+
+  return [val, inputs]
+}
 
 /**
  * Provider stores the state of the atoms to be shared
@@ -162,9 +187,7 @@ function getSnapshot(atomStates, atomRef, arg) {
   }
 
   if (isDirty(atomStates, atomRef, arg)) {
-    let [value, inputs] = evaluateSelectorFn(atomStates, atomRef, () =>
-      atom.selectorFn(arg),
-    )
+    let [value, inputs] = evaluateSelectorFn(atomStates, atomRef, arg)
     if (atom.memo.has(arg) && atom.equal(atom.memo.get(arg).value, value)) {
       value = atom.memo.get(arg).value
     }
@@ -197,38 +220,6 @@ function isDirty(atomStates, atomRef, arg) {
   }
 
   return false
-}
-
-// when recomputing the selector for this atom
-// we need to remove parent/children items since the new
-// selector might depend on a different set of atoms
-function untrack(atomStates, atomRef) {
-  const atom = atomStates.get(atomRef)
-  for (const parentAtomRef of atom.parents) {
-    const parentAtom = atomStates.get(parentAtomRef)
-    parentAtom.children.delete(atomRef)
-  }
-  atom.parents.clear()
-}
-
-/**
- * Getter reads atom's value, while also tracking
- * dependencies on any parent atoms
- */
-function getter(atomStates, atomRef) {
-  return (parentAtomRef, arg) => {
-    const atom = atomStates.get(atomRef)
-
-    // track the dependency tree
-    const parentAtom = init(atomStates, parentAtomRef)
-    atom.parents.add(parentAtomRef)
-    parentAtom.children.add(atomRef)
-
-    // compute the value and keep track of inputs
-    const value = getSnapshot(atomStates, parentAtomRef, arg)
-    __inputs.push({ atomRef: parentAtomRef, arg, value })
-    return value
-  }
 }
 
 /**
