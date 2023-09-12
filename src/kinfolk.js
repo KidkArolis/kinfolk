@@ -51,13 +51,15 @@ const AtomContext = createContext()
  * Machinery to allow reading and subscribing to atoms
  * and selectors inside other selectors
  */
-const defaultGet = () => {
-  throw new Error('Atom values can only be read inside selectors')
-}
+const defaultGet = () => assert(false, 'Atoms can only be read in selectors')
 let __inputs = []
 const __getters = [defaultGet]
 const __get = (...args) => __getters[__getters.length - 1](...args)
-function withGetter(get, fn) {
+
+function evaluateSelectorFn(atomStates, atomRef, fn) {
+  untrack(atomStates, atomRef)
+  const get = getter(atomStates, atomRef)
+
   __getters.push(get)
   const val = fn()
   const inputs = [...__inputs]
@@ -80,7 +82,9 @@ export function Provider({ children, getAtomStates }) {
     getAtomStates && getAtomStates(atomStates)
   }, [atomStates, getAtomStates])
 
-  return <AtomContext.Provider value={atomStates}>{children}</AtomContext.Provider>
+  return (
+    <AtomContext.Provider value={atomStates}>{children}</AtomContext.Provider>
+  )
 }
 
 export function atom(initialState, { label } = {}) {
@@ -158,14 +162,13 @@ function getSnapshot(atomStates, atomRef, arg) {
   }
 
   if (isDirty(atomStates, atomRef, arg)) {
-    // TODO - combine untrack, getter and withGetter into 1 func
-    untrack(atomStates, atomRef)
-    const get = getter(atomStates, atomRef)
-    let [value, inputs] = withGetter(get, () => atom.selectorFn(arg))
+    let [value, inputs] = evaluateSelectorFn(atomStates, atomRef, () =>
+      atom.selectorFn(arg),
+    )
     if (atom.memo.has(arg) && atom.equal(atom.memo.get(arg).value, value)) {
       value = atom.memo.get(arg).value
     }
-    atom.memo.set(arg, { inputs, value })
+    atom.memo.set(arg, { value, inputs })
   }
 
   return atom.memo.get(arg).value
@@ -257,7 +260,10 @@ export function useSelector(selectorFn, deps, equal, label) {
   const atomStates = useContext(AtomContext)
 
   const atomRef = useMemo(() => {
-    return selector(selectorFn, { equal, label })
+    return selector(
+      isAtomOrSelector(selectorFn) ? () => selectorFn() : selectorFn,
+      { equal, label },
+    )
   }, deps)
 
   const { subscribe_, getSnapshot_ } = useMemo(() => {
@@ -278,13 +284,7 @@ export function useReducer(atomRef, reducer) {
   return useCallback(
     function dispatch(action) {
       const atom = init(atomStates, atomRef)
-
-      if (isSelector(atom)) {
-        throw new Error(
-          'Selectors can not be updated directly, update an atom instead',
-        )
-      }
-
+      assert(!isSelector(atom), 'Only atoms can be updated')
       const curr = atom.state
       atom.state = reducer(atom.state, action)
       if (curr !== atom.state) {
@@ -308,6 +308,16 @@ export function useSetter(atomRef) {
   })
 
   return set
+}
+
+function assert(invariant, message) {
+  if (!invariant) {
+    throw new Error(message)
+  }
+}
+
+function isAtomOrSelector(atomRef) {
+  return atomMetas.has(atomRef)
 }
 
 function isSelector(atom) {
