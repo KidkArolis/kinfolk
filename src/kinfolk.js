@@ -114,10 +114,10 @@ export function atom(initialState, { label } = {}) {
   return atomRef
 }
 
-export function selector(selectorFn, { label, equal } = {}) {
+export function selector(selectorFn, { label, equal, persist = true } = {}) {
   const selectorRef = (arg) => __get(selectorRef, arg)
   if (label) selectorRef.label = label
-  const selectorMeta = { selectorFn, equal }
+  const selectorMeta = { selectorFn, equal, persist }
   atomMetas.set(selectorRef, selectorMeta)
   return selectorRef
 }
@@ -143,6 +143,7 @@ function getAtom(atomStates, atomRef) {
       atom.equal = atomMeta.equal || shallowEqual
       atom.memo = new Map()
       atom.label = atom.label || `selector${++selectorLabel}`
+      atom.persist = atomMeta.persist
     } else {
       atom.label = atom.label || `atom${++atomLabel}`
     }
@@ -164,7 +165,9 @@ function dispose(atomStates, atomRef) {
     atom.listeners.size === 0 &&
     atom.children.size === 0
   ) {
-    atomStates.delete(atomRef)
+    if (!atom.persist) {
+      atomStates.delete(atomRef)
+    }
     for (const parentAtomRef of atom.parents) {
       const parentAtom = atomStates.get(parentAtomRef)
       parentAtom.children.delete(atomRef)
@@ -241,7 +244,7 @@ function subscribe(atomStates, atomRef, fn) {
  * Hook to subscribe to atom/selector value
  */
 
-export function useSelector(selectorFnOrRef, deps, options) {
+export function useSelector(selectorFnOrRef, deps, options = {}) {
   const atomStates = useContext(AtomContext)
 
   // in case someone passed in an atomRef or selectorRef
@@ -255,7 +258,10 @@ export function useSelector(selectorFnOrRef, deps, options) {
   // notice, we don't re-look at the options after memoising the selectorFn
   // if the users really want to update equal or label, they should pass
   // that into the dependencies
-  const atomRef = useMemo(() => selector(selectorFn, options), [selectorFn])
+  const atomRef = useMemo(
+    () => selector(selectorFn, { ...options, persist: false }),
+    [selectorFn],
+  )
 
   const { subscribe_, getSnapshot_ } = useMemo(
     () => ({
