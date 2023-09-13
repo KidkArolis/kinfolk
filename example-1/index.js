@@ -4,6 +4,7 @@ import React from 'react'
 import { createRoot } from 'react-dom/client'
 import {
   Provider,
+  createStore,
   atom,
   selector,
   useSelector,
@@ -11,8 +12,12 @@ import {
 } from '../src/kinfolk.js'
 import './styles.css'
 
+const store = createStore()
 const counter = atom(0, { label: 'counter' })
 const double = selector(() => counter() * 2, { label: 'double' })
+
+window.store = store
+window.counter = counter
 
 function App() {
   const val = useSelector(counter)
@@ -26,7 +31,7 @@ function App() {
 }
 
 createRoot(document.querySelector('#root')).render(
-  <Provider getAtomStates={(store) => (window.store = store)}>
+  <Provider store={store}>
     <App />
   </Provider>,
 )

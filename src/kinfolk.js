@@ -1,7 +1,6 @@
 import React, {
   createContext,
   useState,
-  useEffect,
   useContext,
   useCallback,
   useMemo,
@@ -100,13 +99,8 @@ function evaluateSelectorFn(atomStates, atomRef, arg) {
  * Provider stores the state of the atoms to be shared
  * within the wrapped subtree.
  */
-export function Provider({ getAtomStates, children }) {
-  const [atomStates] = useState(() => new Map())
-
-  useEffect(() => {
-    getAtomStates && getAtomStates(atomStates)
-  }, [atomStates, getAtomStates])
-
+export function Provider({ store, children }) {
+  const [{ atomStates }] = useState(() => store || createStore())
   return (
     <AtomContext.Provider value={atomStates}>{children}</AtomContext.Provider>
   )
@@ -148,9 +142,9 @@ function getAtom(atomStates, atomRef) {
       atom.selectorFn = atomMeta.selectorFn
       atom.equal = atomMeta.equal || Object.is
       atom.memo = new Map()
-      atom.label = atom.label || `selector-${++selectorLabel}`
+      atom.label = atom.label || `selector${++selectorLabel}`
     } else {
-      atom.label = atom.label || `atom-${++atomLabel}`
+      atom.label = atom.label || `atom${++atomLabel}`
     }
 
     atomStates.set(atomRef, atom)
@@ -182,7 +176,7 @@ function dispose(atomStates, atomRef) {
 function getSnapshot(atomStates, atomRef, arg) {
   const atom = getAtom(atomStates, atomRef)
 
-  if (!atom.selectorFn) {
+  if (!isSelector(atom)) {
     return atom.state
   }
 
@@ -275,6 +269,20 @@ export function useSelector(selectorFnOrRef, deps, options) {
 }
 
 /**
+ * Update the state of the atom
+ * notifying all dependends in the process
+ */
+function update(atomStates, atomRef, updater) {
+  const atom = getAtom(atomStates, atomRef)
+  assert(!isSelector(atom), 'Only atoms can be updated')
+  const curr = atom.state
+  atom.state = updater(atom.state)
+  if (curr !== atom.state) {
+    notify(atomStates, atomRef)
+  }
+}
+
+/**
  * Hook for updating atom using a reducer
  */
 export function useReducer(atomRef, reducer) {
@@ -282,13 +290,7 @@ export function useReducer(atomRef, reducer) {
 
   return useCallback(
     function dispatch(action) {
-      const atom = getAtom(atomStates, atomRef)
-      assert(!isSelector(atom), 'Only atoms can be updated')
-      const curr = atom.state
-      atom.state = reducer(atom.state, action)
-      if (curr !== atom.state) {
-        notify(atomStates, atomRef)
-      }
+      update(atomStates, atomRef, (state) => reducer(state, action))
     },
     [atomStates, atomRef, reducer],
   )
@@ -297,12 +299,71 @@ export function useReducer(atomRef, reducer) {
 /**
  * Hook for updating atom using a setter
  */
+export function useSetter(atomRef) {
+  return useReducer(atomRef, setReducer)
+}
+
+/**
+ * The reducer used inside useSetter
+ * hoisted out of that hook for perf
+ */
 function setReducer(state, update) {
   return typeof update === 'function' ? update(state) : update
 }
 
-export function useSetter(atomRef) {
-  return useReducer(atomRef, setReducer)
+/**
+ * Store is where atomStates are stored,
+ * and can be used to externally (outside of React render tree)
+ * inspect or modify the contents of the store
+ *
+ * @return {[type]} [description]
+ */
+export function createStore() {
+  const store = {
+    // for debugging, not a public API
+    atomMetas,
+
+    // for debugging, not a public API
+    atomStates: new Map(),
+
+    // get a value of an atom
+    get(atomRef, arg) {
+      const { atomStates } = store
+      return getSnapshot(atomStates, atomRef, arg)
+    },
+
+    // update the value of an atom
+    set(atomRef, value) {
+      const { atomStates } = store
+      update(atomStates, atomRef, (state) =>
+        typeof value === 'function' ? value(state) : value,
+      )
+    },
+
+    // read out all of values in the entire app
+    // keyed by the atom label (generated or provided)
+    // and also include all of the current selector
+    // state in the __selectors key
+    debug() {
+      const { atomStates } = store
+      const result = { __selectors: {} }
+      for (const atomState of atomStates.values()) {
+        const { label, selectorFn, state, memo } = atomState
+        const dest = selectorFn ? result.__selectors : result
+        const val = selectorFn ? memo : state
+        if (dest[label]) {
+          if (!Array.isArray(dest[label])) {
+            dest[label] = [dest[label]]
+          }
+          dest[label].push(val)
+        } else {
+          dest[label] = val
+        }
+      }
+      return result
+    },
+  }
+  return store
 }
 
 function assert(invariant, message) {
