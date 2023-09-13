@@ -82,7 +82,7 @@ function evaluateSelectorFn(atomStates, atomRef, arg) {
   const inputs = []
   const get = (parentAtomRef, arg) => {
     // track the dependency tree
-    const parentAtom = init(atomStates, parentAtomRef)
+    const parentAtom = getAtom(atomStates, parentAtomRef)
     atom.parents.add(parentAtomRef)
     parentAtom.children.add(atomRef)
 
@@ -128,7 +128,7 @@ export function selector(selectorFn, { label, equal } = {}) {
   return selectorRef
 }
 
-function init(atomStates, atomRef) {
+function getAtom(atomStates, atomRef) {
   if (!atomStates.has(atomRef)) {
     const atomMeta = atomMetas.get(atomRef)
 
@@ -180,7 +180,7 @@ function dispose(atomStates, atomRef) {
 }
 
 function getSnapshot(atomStates, atomRef, arg) {
-  const atom = init(atomStates, atomRef)
+  const atom = getAtom(atomStates, atomRef)
 
   if (!atom.selectorFn) {
     return atom.state
@@ -204,7 +204,7 @@ function getSnapshot(atomStates, atomRef, arg) {
  * - inputs changed since the last time
  */
 function isDirty(atomStates, atomRef, arg) {
-  const atom = init(atomStates, atomRef)
+  const atom = getAtom(atomStates, atomRef)
 
   if (!atom.memo.has(arg)) {
     return true
@@ -235,7 +235,7 @@ function notify(atomStates, atomRef) {
  * Listen to atom changes
  */
 function subscribe(atomStates, atomRef, fn) {
-  const atom = init(atomStates, atomRef)
+  const atom = getAtom(atomStates, atomRef)
   atom.listeners.add(fn)
   return function unsubscribe() {
     atom.listeners.delete(fn)
@@ -252,7 +252,7 @@ export function useSelector(selectorFn, deps, equal, label) {
 
   const atomRef = useMemo(() => {
     return selector(
-      isAtomOrSelector(selectorFn) ? () => selectorFn() : selectorFn,
+      isAtomOrSelectorRef(selectorFn) ? () => selectorFn() : selectorFn,
       { equal, label },
     )
   }, deps)
@@ -274,7 +274,7 @@ export function useReducer(atomRef, reducer) {
 
   return useCallback(
     function dispatch(action) {
-      const atom = init(atomStates, atomRef)
+      const atom = getAtom(atomStates, atomRef)
       assert(!isSelector(atom), 'Only atoms can be updated')
       const curr = atom.state
       atom.state = reducer(atom.state, action)
@@ -307,7 +307,7 @@ function assert(invariant, message) {
   }
 }
 
-function isAtomOrSelector(atomRef) {
+function isAtomOrSelectorRef(atomRef) {
   return atomMetas.has(atomRef)
 }
 
