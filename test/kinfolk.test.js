@@ -7,6 +7,7 @@ import {
   atom,
   selector,
   useSetter,
+  useReducer,
   useSelector,
 } from '../src/kinfolk'
 
@@ -52,6 +53,56 @@ test('basic atom and selector', async (t) => {
   fireEvent.click(container.querySelector('button'))
   t.is(container.querySelector('.content-1').innerHTML, '2')
   t.is(container.querySelector('.content-2').innerHTML, '4')
+})
+
+test('useReducer', async (t) => {
+  const counter = atom(0, { label: 'counter' })
+  const double = selector(() => counter() * 2, { label: 'double' })
+
+  function count(state, action) {
+    if (action === 'inc') return state + 1
+
+    if (action === 'dec') return state - 1
+
+    return state
+  }
+
+  function App() {
+    const val1 = useSelector(() => counter(), [])
+    const val2 = useSelector(() => double())
+    const dispatch = useReducer(counter, count)
+
+    return (
+      <div>
+        <button className='inc' onClick={() => dispatch('inc')}>
+          Increment
+        </button>
+        <button className='dec' onClick={() => dispatch('dec')}>
+          Decrement
+        </button>
+        <div className='content-1'>{val1}</div>
+        <div className='content-2'>{val2}</div>
+      </div>
+    )
+  }
+
+  const { container } = render(
+    <Provider>
+      <App />
+    </Provider>,
+  )
+
+  t.is(container.querySelector('.content-1').innerHTML, '0')
+  t.is(container.querySelector('.content-2').innerHTML, '0')
+  fireEvent.click(container.querySelector('.inc'))
+  t.is(container.querySelector('.content-1').innerHTML, '1')
+  t.is(container.querySelector('.content-2').innerHTML, '2')
+  fireEvent.click(container.querySelector('.inc'))
+  t.is(container.querySelector('.content-1').innerHTML, '2')
+  t.is(container.querySelector('.content-2').innerHTML, '4')
+  fireEvent.click(container.querySelector('.dec'))
+  t.is(container.querySelector('.content-1').innerHTML, '1')
+  t.is(container.querySelector('.content-2').innerHTML, '2')
 })
 
 test('selector without atom being directly used', async (t) => {
