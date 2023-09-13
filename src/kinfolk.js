@@ -1,361 +1,454 @@
-import React, { createContext, useState, useEffect, useContext, useMemo, useRef, useSyncExternalStore } from 'react'
+import React, {
+  createContext as createReactContext,
+  useState,
+  useContext,
+  useCallback,
+  useMemo,
+  useSyncExternalStore,
+} from 'react'
 
 /**
-  atom
-  ----
-  atoms are lazily created upon interacting with them
-  for the first time and are stored in a Map in the context
-  they don't get used directly and are instead interacted
-  with via hooks
-
   atomRef
   -------
-  each atom is referenced by a unique atomRef
+  When you create an atom with atom(), you get a reference which we call atomRef
+  internally in the implementation. We'll use atomRef as the key to store atom's
+  metadata such as initial state in atomMetas (global) and atom's current state
+  and dependencies in atomStates (Provider).
 
   atomMeta
   --------
-  when we create an atom, we pass initial state and
-  other config - we call this atomMeta and store in
-  a global meta map keyed by a unique atomRef for
-  each atom created
+  When we create an atom, we pass initial state and other config - we call
+  this atomMeta and store in a global meta map keyed by a unique atomRef for
+  each atom (and selector) created.
 
-  in conclusion, we have
+  atomState
+  ---------
+  Atom state is lazily initialised upon interacting with the atom for the
+  first time with a hook. We store this state in a Map in React context.
 
-  meta: atomRef -> atomMeta (global)
-  store: atomRef -> atom (per Provider)
- 
+  In summary, we have:
+
+  - calling atom() returns an atomRef
+  - atomMetas is a map of atomRef -> atomMeta (global)
+  - atomStates is a map of atomRef -> atomState (per Provider)
+
  */
 
 /**
- * A map of atomRef -> atomMeta storing all atomMetas
- * ever created. Automatically cleans up if the atomRef
- * is released.
+ * A map of atomRef -> atomMeta storing all atomMetas ever created.
  */
-const meta = new WeakMap()
+const atomMetas = new WeakMap()
 
 /**
  * Context is where we keep the store of atoms for each
  * different React subtree, typically you'll use one only
  * but you can use multiple ones.
  */
-const AtomContext = createContext()
+const AtomContext = createReactContext()
+
+/*
+ * Indices for default atom and selector labeling
+ */
+let atomLabel = 0
+let selectorLabel = 0
 
 /**
- * Provider wraps the application or a subtree so that
- * all hooks could be used within that subtree.
+ * Machinery to allow reading and subscribing to atoms
+ * and selectors inside other selectors
  */
-export function Provider({ children, onMount }) {
-  const [store] = useState(() => new Map())
+const defaultGet = () => assert(false, 'Atoms can only be read in selectors')
+const __getters = [defaultGet]
+const __get = (...args) => __getters[__getters.length - 1](...args)
 
-  useEffect(() => {
-    const getState = () => Array.from(store.values())
-    onMount && onMount(store, getState)
-  }, [])
-
-  return <AtomContext.Provider value={store}>{children}</AtomContext.Provider>
+function withGetter(get, fn) {
+  __getters.push(get)
+  const val = fn()
+  __getters.pop()
+  return val
 }
 
-export function atom(initialState, { label = '_' } = {}) {
-  const atomRef = Object.freeze({ label })
+function evaluateSelectorFn(atomStates, atomRef, arg) {
+  const atom = atomStates.get(atomRef)
+
+  // untrack the dependencies of this atom
+  for (const parentAtomRef of atom.parents) {
+    const parentAtom = atomStates.get(parentAtomRef)
+    parentAtom.children.delete(atomRef)
+  }
+  atom.parents.clear()
+
+  // create a getter able to track the dependencies
+  const inputs = []
+  const get = (parentAtomRef, arg) => {
+    // track the dependency tree
+    const parentAtom = getAtom(atomStates, parentAtomRef)
+    atom.parents.add(parentAtomRef)
+    parentAtom.children.add(atomRef)
+
+    // compute the value and keep track of inputs
+    const value = getSnapshot(atomStates, parentAtomRef, arg)
+    inputs.push({ atomRef: parentAtomRef, arg, value })
+    return value
+  }
+  const val = withGetter(get, () => atom.selectorFn(arg))
+
+  return [val, inputs]
+}
+
+/**
+ * Allows creating an isolated context
+ * for use within libraries, while still allowing
+ * to share the store by passing in the same store
+ * instance to the Provider
+ */
+export function createContext() {
+  const AtomContext = createReactContext()
+  const Provider = createProvider(AtomContext)
+  const useSetter = createUseSetter(AtomContext)
+  const useReducer = createUseReducer(AtomContext)
+  const useSelector = createUseSelector(AtomContext)
+  return { atom, selector, Provider, useSetter, useReducer, useSelector }
+}
+
+export const { Provider, useSetter, useReducer, useSelector } = createContext()
+
+/**
+ * Provider stores the state of the atoms to be shared
+ * within the wrapped subtree.
+ */
+function createProvider(AtomContext) {
+  return function Provider({ store, children }) {
+    const [{ atomStates }] = useState(() => store || createStore())
+    return (
+      <AtomContext.Provider value={atomStates}>{children}</AtomContext.Provider>
+    )
+  }
+}
+
+export function atom(initialState, { label } = {}) {
+  const atomRef = () => __get(atomRef)
+  if (label) atomRef.label = label
   const atomMeta = { initialState }
-  meta.set(atomRef, atomMeta)
+  atomMetas.set(atomRef, atomMeta)
   return atomRef
 }
 
-export function selector(selector, { label = '_', equal } = {}) {
-  const atomRef = Object.freeze({ label })
-  const atomMeta = { selector, equal }
-  meta.set(atomRef, atomMeta)
-  return atomRef
+export function selector(selectorFn, { label, equal, persist = true } = {}) {
+  const selectorRef = (arg) => __get(selectorRef, arg)
+  if (label) selectorRef.label = label
+  const selectorMeta = { selectorFn, equal, persist }
+  atomMetas.set(selectorRef, selectorMeta)
+  return selectorRef
 }
 
-export function selectorMap(selector, { label = '_' } = {}) {
-  return selector(selector, { label, equal: shallowMapEquals })
-}
+function getAtom(atomStates, atomRef) {
+  if (!atomStates.has(atomRef)) {
+    const atomMeta = atomMetas.get(atomRef)
 
-export function selectorList(selector, { label = '_' } = {}) {
-  return selector(selector, { label, equal: shallowListEquals })
-}
-
-function mount(store, atomRef) {
-  // already mounted
-  if (store.has(atomRef)) {
-    return store.get(atomRef)
-  }
-
-  const atomMeta = meta.get(atomRef)
-  const atom = {
-    label: atomRef.label,
-    state: null,
-    listeners: new Set(),
-    dependents: [],
-    dependencies: [],
-    equal: atomMeta.equal || Object.is,
-  }
-  store.set(atomRef, atom)
-
-  if (has(atomMeta, 'initialState')) {
-    atom.state = atomMeta.initialState
-  }
-
-  if (atomMeta.selector) {
-    atom.selector = atomMeta.selector
-    atom.state = select(store, atomRef)
-  }
-
-  return store.get(atomRef)
-}
-
-function unmount(store, atomRef) {
-  const atom = store.get(atomRef)
-
-  if (atom && !atom.dependents.length) {
-    const dependencies = atom.dependencies
-
-    // invoke getter to clear dependencies
-    getter(store, atomRef)
-
-    // delete atom since nobody is using it anymore
-    store.delete(atomRef)
-
-    // and walk the dependency tree down to
-    // clean them up also
-    dependencies.forEach((depRef) => {
-      unmount(store, depRef)
-    })
-  }
-}
-
-/**
- * Listen to atom changes
- */
-function subscribe(store, atomRef, fn) {
-  const atom = store.get(atomRef)
-  atom.listeners.add(fn)
-  return function unsubscribe() {
-    atom.listeners.delete(fn)
-  }
-}
-
-/**
- * Computes the selector, updates the dependency
- * graph in the store while doing so.
- */
-function select(store, atomRef) {
-  const atom = store.get(atomRef)
-  const get = getter(store, atomRef)
-  return atom.selector(get)
-}
-
-/**
- * Getter is how selectors can be used to construct
- * a memoised computations that are only updated
- * if the depdendencies update.
- */
-function getter(store, atomRef) {
-  // cleanup
-  const atom = store.get(atomRef)
-  for (const upstreamAtomRef of atom.dependencies) {
-    const upstreamAtom = store.get(upstreamAtomRef)
-    upstreamAtom.dependents = upstreamAtom.dependents.filter((dependent) => {
-      if (dependent.atomRef !== atomRef) {
-        return true
-      } else {
-        dependent.count -= 1
-        return dependent.count > 0
-      }
-    })
-  }
-  atom.dependencies = []
-
-  // provide a new getter that will re-track the dependencies
-  return (upstreamAtomRef) => {
-    mount(store, upstreamAtomRef)
-
-    // track dependencies
-    if (!atom.dependencies.includes(upstreamAtomRef)) {
-      atom.dependencies.push(upstreamAtomRef)
+    const atom = {
+      state: null,
+      listeners: new Set(),
+      parents: new Set(),
+      children: new Set(),
+      label: atomRef.label,
     }
 
-    // and dependents
-    const upstreamAtom = store.get(upstreamAtomRef)
-    const dependents = upstreamAtom.dependents
-    const existingDependent = dependents.find((d) => d.atomRef === atomRef)
-    if (existingDependent) {
-      existingDependent.count += 1
+    if (has(atomMeta, 'initialState')) {
+      atom.state = atomMeta.initialState
+    }
+
+    if (has(atomMeta, 'selectorFn')) {
+      atom.selectorFn = atomMeta.selectorFn
+      atom.equal = atomMeta.equal || shallowEqual
+      atom.memo = new Map()
+      atom.label = atom.label || `selector${++selectorLabel}`
+      atom.persist = atomMeta.persist
     } else {
-      upstreamAtom.dependents.push({ count: 1, atomRef })
+      atom.label = atom.label || `atom${++atomLabel}`
     }
-    return upstreamAtom.state
+
+    atomStates.set(atomRef, atom)
   }
+
+  return atomStates.get(atomRef)
+}
+
+/**
+ * Whenever we unsubscribe from a selector, we will
+ * attempt to delete if it's no longer needed
+ */
+function dispose(atomStates, atomRef) {
+  const atom = atomStates.get(atomRef)
+  if (
+    isSelector(atom) &&
+    atom.listeners.size === 0 &&
+    atom.children.size === 0
+  ) {
+    if (!atom.persist) {
+      atomStates.delete(atomRef)
+    }
+    for (const parentAtomRef of atom.parents) {
+      const parentAtom = atomStates.get(parentAtomRef)
+      parentAtom.children.delete(atomRef)
+      dispose(atomStates, parentAtomRef)
+    }
+  }
+}
+
+function getSnapshot(atomStates, atomRef, arg) {
+  const atom = getAtom(atomStates, atomRef)
+
+  if (!isSelector(atom)) {
+    return atom.state
+  }
+
+  if (isDirty(atomStates, atomRef, arg)) {
+    let [value, inputs] = evaluateSelectorFn(atomStates, atomRef, arg)
+    if (atom.memo.has(arg) && atom.equal(atom.memo.get(arg).value, value)) {
+      value = atom.memo.get(arg).value
+    }
+    atom.memo.set(arg, { value, inputs })
+  }
+
+  return atom.memo.get(arg).value
+}
+
+/**
+ * Given a selector, check if we need to recompute
+ * it's value, which is the case if:
+ * - nothing is memoised yet
+ * - inputs changed since the last time
+ */
+function isDirty(atomStates, atomRef, arg) {
+  const atom = getAtom(atomStates, atomRef)
+
+  if (!atom.memo.has(arg)) {
+    return true
+  }
+
+  const { inputs } = atom.memo.get(arg)
+
+  for (const input of inputs) {
+    const inputValue = getSnapshot(atomStates, input.atomRef, input.arg)
+    if (inputValue !== input.value) {
+      return true
+    }
+  }
+
+  return false
 }
 
 /**
  * Notify listeners of atom's update
  */
-function notify(store, atomRef) {
-  const atom = store.get(atomRef)
-
-  if (atom.selector) {
-    const curr = atom.state
-    atom.state = select(store, atomRef)
-    if (atom.equal(curr, atom.state)) return
-  }
-
-  atom.listeners.forEach((l) => l(atom.state))
-  atom.dependents.forEach((d) => notify(store, d.atomRef))
+function notify(atomStates, atomRef) {
+  const atom = atomStates.get(atomRef)
+  atom.listeners.forEach((l) => l())
+  atom.children.forEach((childRef) => notify(atomStates, childRef))
 }
 
 /**
- * Hook to subscribe to atom's value
+ * Listen to atom changes
  */
-export function useValue(atomRef) {
-  const store = useContext(AtomContext)
-
-  const { sub, getSnapshot } = useMemo(() => {
-    const sub = (cb) => subscribe(store, atomRef, cb)
-    const getSnapshot = () => {
-      return mount(store, atomRef).state
-    }
-    return { sub, getSnapshot }
-  }, [store, atomRef])
-
-  useEffect(() => {
-    return () => {
-      unmount(store, atomRef)
-    }
-  }, [atomRef])
-
-  return useSyncExternalStore(sub, getSnapshot)
-}
-
-/**
- * Hook to get a setter for updating atom
- */
-export function useSet(atomRef) {
-  const store = useContext(AtomContext)
-
-  useEffect(() => {
-    mount(store, atomRef)
-    return () => {
-      unmount(store, atomRef)
-    }
-  }, [atomRef])
-
-  return (state) => {
-    const atom = store.get(atomRef)
-
-    const curr = atom.state
-
-    if (typeof state === 'function') {
-      atom.state = state(atom.state)
-    } else {
-      atom.state = state
-    }
-
-    if (curr !== atom.state) {
-      notify(store, atomRef)
-    }
+function subscribe(atomStates, atomRef, fn) {
+  const atom = getAtom(atomStates, atomRef)
+  atom.listeners.add(fn)
+  return function unsubscribe() {
+    atom.listeners.delete(fn)
+    dispose(atomStates, atomRef)
   }
 }
 
 /**
- * Hook to get a setter for updating atom
- * using the reducer pattern
+ * Hook to subscribe to atom/selector value
  */
-export function useReducer(atomRef, reducer) {
-  const store = useContext(AtomContext)
 
-  useEffect(() => {
-    mount(store, atomRef)
-    return () => {
-      unmount(store, atomRef)
-    }
-  }, [atomRef])
+function createUseSelector(AtomContext) {
+  return function useSelector(selectorFnOrRef, deps, options = {}) {
+    const atomStates = useContext(AtomContext)
 
-  return (action) => {
-    const atom = store.get(atomRef)
+    // in case someone passed in an atomRef or selectorRef
+    // we wrap it into a selector function that reads the value
+    const selectorFn = isAtomOrSelectorRef(selectorFnOrRef)
+      ? // eslint-disable-next-line react-hooks/rules-of-hooks
+        useCallback(() => selectorFnOrRef(), [selectorFnOrRef])
+      : // eslint-disable-next-line react-hooks/rules-of-hooks
+        useCallback(selectorFnOrRef, deps)
 
-    const curr = atom.state
+    // notice, we don't re-look at the options after memoising the selectorFn
+    // if the users really want to update equal or label, they should pass
+    // that into the dependencies
+    const atomRef = useMemo(
+      () => selector(selectorFn, { ...options, persist: false }),
+      [selectorFn],
+    )
 
-    atom.state = reducer(atom.state, action)
+    const { subscribe_, getSnapshot_ } = useMemo(
+      () => ({
+        subscribe_: (cb) => subscribe(atomStates, atomRef, cb),
+        getSnapshot_: () => getSnapshot(atomStates, atomRef),
+      }),
+      [atomStates, atomRef],
+    )
 
-    if (curr !== atom.state) {
-      notify(store, atomRef)
-    }
+    return useSyncExternalStore(subscribe_, getSnapshot_)
   }
 }
 
 /**
- * Hook to create an inline selector
+ * Update the state of the atom
+ * notifying all dependends in the process
  */
-export function useSelector(selectorFn, deps, label, equal) {
-  const initialised = useRef(false)
-  const [sel, setSelector] = useState(() => selector(selectorFn, { label, equal }))
-
-  useEffect(() => {
-    if (initialised.current) {
-      setSelector(selector(selectorFn, { label, equal }))
-    }
-    initialised.current = true
-  }, deps)
-
-  return useValue(sel)
-}
-
-export function useSelectorMap(selectorFn, deps, label) {
-  return useSelector(selectorFn, deps, label, shallowMapEquals)
-}
-
-export function useSelectorList(selectorFn, deps, label) {
-  return useSelector(selectorFn, deps, label, shallowListEquals)
-}
-
-/**
- * A helper for creating a set of named functions
- * that can update the atom
- */
-export function actions(atomRef, actions) {
-  return function useActions() {
-    const set = useSet(atomRef)
-    return useMemo(() => {
-      return mapValues(actions, (action) => (payload) => {
-        set((state) => action(state, payload))
-      })
-    }, [set])
+function update(atomStates, atomRef, updater) {
+  const atom = getAtom(atomStates, atomRef)
+  assert(!isSelector(atom), 'Only atoms can be updated')
+  const curr = atom.state
+  atom.state = updater(atom.state)
+  if (curr !== atom.state) {
+    notify(atomStates, atomRef)
   }
 }
 
-function has(obj, key) {
-  return Object.prototype.hasOwnProperty.call(obj, key)
+/**
+ * Hook for updating atom using a reducer
+ */
+function createUseReducer(AtomContext) {
+  return function useReducer(atomRef, reducer) {
+    const atomStates = useContext(AtomContext)
+
+    return useCallback(
+      function dispatch(action) {
+        update(atomStates, atomRef, (state) => reducer(state, action))
+      },
+      [atomStates, atomRef, reducer],
+    )
+  }
 }
 
-function mapValues(obj, mapFn) {
-  return Object.keys(obj).reduce((acc, key) => {
-    acc[key] = mapFn(acc[key], key)
-    return acc
-  }, {})
+/**
+ * Hook for updating atom using a setter
+ */
+function createUseSetter(AtomContext) {
+  const useReducer = createUseReducer(AtomContext)
+  return function useSetter(atomRef) {
+    return useReducer(atomRef, setReducer)
+  }
 }
 
-export function shallowMapEquals(a, b) {
+/**
+ * The reducer used inside useSetter
+ * hoisted out of that hook for perf
+ */
+function setReducer(state, update) {
+  return typeof update === 'function' ? update(state) : update
+}
+
+/**
+ * Store is where atomStates are stored,
+ * and can be used to externally (outside of React render tree)
+ * inspect or modify the contents of the store
+ */
+export function createStore() {
+  const store = {
+    // for debugging, not a public API
+    atomMetas,
+
+    // for debugging, not a public API
+    atomStates: new Map(),
+
+    // get a value of an atom
+    get(atomRef, arg) {
+      const { atomStates } = store
+      return getSnapshot(atomStates, atomRef, arg)
+    },
+
+    // update the value of an atom
+    set(atomRef, value) {
+      const { atomStates } = store
+      update(atomStates, atomRef, (state) =>
+        typeof value === 'function' ? value(state) : value,
+      )
+    },
+
+    // read out all of values in the entire app
+    // keyed by the atom label (generated or provided)
+    // and also include all of the current selector
+    // state in the __selectors key
+    debug() {
+      const { atomStates } = store
+      const result = { __selectors: {} }
+      for (const atomState of atomStates.values()) {
+        const { label, selectorFn, state, memo } = atomState
+        const dest = selectorFn ? result.__selectors : result
+        const val = selectorFn ? memo : state
+        if (dest[label]) {
+          if (!Array.isArray(dest[label])) {
+            dest[label] = [dest[label]]
+          }
+          dest[label].push(val)
+        } else {
+          dest[label] = val
+        }
+      }
+      return result
+    },
+  }
+  return store
+}
+
+/**
+ * Slightly fancy shallow equality comparator that checks for
+ *  - object equality
+ *  - shallow object equality by matching all keys
+ *  - shallow array equality by matching all items
+ *
+ * this will catch some cases where values computed in selectors
+ * will get memoised more easily in cases they return shallowly
+ * equal objects or arrays
+ */
+function shallowEqual(a, b) {
+  return Object.is(a, b) || objEqual(a, b) || arrEqual(a, b)
+}
+
+function objEqual(a, b) {
   if (a === b) return true
   if (!a || !b) return false
   if (!isObject(a) || !isObject(b)) return false
-  for (const i in a) if (a[i] !== b[i]) return false
-  for (const i in b) if (!(i in a)) return false
+  for (const k in a) if (a[k] !== b[k]) return false
+  for (const k in b) if (!(k in a)) return false
   return true
 }
 
-export function shallowListEquals(a, b) {
+function arrEqual(a, b) {
   if (a === b) return true
   if (!a || !b) return false
+  if (!Array.isArray(a) || !Array.isArray(b)) return false
   if (a.length !== b.length) return false
-  for (let i = 0; i < a.length; i++) {
-    if (a[i] !== b[i]) return false
-  }
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false
   return true
 }
 
 function isObject(obj) {
-  return typeof obj === 'object' && Object.prototype.toString.call(obj) === '[object Object]'
+  return (
+    typeof obj === 'object' &&
+    Object.prototype.toString.call(obj) === '[object Object]'
+  )
+}
+
+function assert(invariant, message) {
+  if (!invariant) {
+    throw new Error(message)
+  }
+}
+
+function isAtomOrSelectorRef(atomRef) {
+  return atomMetas.has(atomRef)
+}
+
+function isSelector(atom) {
+  return has(atom, 'selectorFn')
+}
+
+function has(obj, key) {
+  return Object.prototype.hasOwnProperty.call(obj, key)
 }

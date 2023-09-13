@@ -1,0 +1,18 @@
+{
+  "name": "kinfolk-example-1",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "jetpack"
+  },
+  "author": "Karolis Narkevicius <hey@k8.lt>",
+  "license": "ISC",
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "jetpack": "^1.2.1"
+  }
+}

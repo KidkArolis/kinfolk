@@ -2,25 +2,27 @@
   "name": "kinfolk",
   "version": "1.0.0",
   "description": "Atoms and selectors for React",
-  "main": "src/index.js",
+  "main": "src/kinfolk.js",
   "directories": {
     "src": "src"
   },
   "scripts": {
-    "test": "ava",
+    "test": "npm run lint && ava",
+    "lint": "healthier && prettier --check '**/*.js'",
+    "format": "prettier --write '**/*.js'",
     "coverage": "nyc --reporter html ava"
   },
-  "author": "Karolis Narkevicius",
+  "author": "Karolis Narkevicius <hey@k8.lt>",
   "license": "ISC",
   "devDependencies": {
-    "@swc/core": "^1.2.172",
+    "@swc/core": "^1.3.83",
     "@swc/register": "^0.1.10",
-    "@testing-library/react": "^13.1.1",
-    "ava": "^4.2.0",
-    "healthier": "^5.0.1",
-    "jsdom": "^19.0.0",
+    "@testing-library/react": "^14.0.0",
+    "ava": "^5.3.1",
+    "healthier": "^6.4.0",
+    "jsdom": "^22.1.0",
     "nyc": "^15.1.0",
-    "prettier": "^2.6.2"
+    "prettier": "^3.0.3"
   },
   "ava": {
     "files": [
