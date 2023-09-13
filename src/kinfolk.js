@@ -95,11 +95,11 @@ function evaluateSelectorFn(atomStates, atomRef, arg) {
  * instance to the Provider
  */
 export function createContext() {
-  const AtomContext = createReactContext()
-  const Provider = createProvider(AtomContext)
-  const useSetter = createUseSetter(AtomContext)
-  const useReducer = createUseReducer(AtomContext)
-  const useSelector = createUseSelector(AtomContext)
+  const KinfolkContext = createReactContext()
+  const Provider = createProvider(KinfolkContext)
+  const useSetter = createUseSetter(KinfolkContext)
+  const useReducer = createUseReducer(KinfolkContext)
+  const useSelector = createUseSelector(KinfolkContext)
   return { atom, selector, Provider, useSetter, useReducer, useSelector }
 }
 
@@ -109,11 +109,13 @@ export const { Provider, useSetter, useReducer, useSelector } = createContext()
  * Provider stores the state of the atoms to be shared
  * within the wrapped subtree.
  */
-function createProvider(AtomContext) {
+function createProvider(KinfolkContext) {
   return function Provider({ store, children }) {
     const [{ atomStates }] = useState(() => store || createStore())
     return (
-      <AtomContext.Provider value={atomStates}>{children}</AtomContext.Provider>
+      <KinfolkContext.Provider value={atomStates}>
+        {children}
+      </KinfolkContext.Provider>
     )
   }
 }
@@ -256,9 +258,9 @@ function subscribe(atomStates, atomRef, fn) {
  * Hook to subscribe to atom/selector value
  */
 
-function createUseSelector(AtomContext) {
+function createUseSelector(KinfolkContext) {
   return function useSelector(selectorFnOrRef, deps, options = {}) {
-    const atomStates = useContext(AtomContext)
+    const atomStates = useContext(KinfolkContext)
 
     // in case someone passed in an atomRef or selectorRef
     // we wrap it into a selector function that reads the value
@@ -305,9 +307,9 @@ function update(atomStates, atomRef, updater) {
 /**
  * Hook for updating atom using a reducer
  */
-function createUseReducer(AtomContext) {
+function createUseReducer(KinfolkContext) {
   return function useReducer(atomRef, reducer) {
-    const atomStates = useContext(AtomContext)
+    const atomStates = useContext(KinfolkContext)
 
     return useCallback(
       function dispatch(action) {
@@ -321,8 +323,8 @@ function createUseReducer(AtomContext) {
 /**
  * Hook for updating atom using a setter
  */
-function createUseSetter(AtomContext) {
-  const useReducer = createUseReducer(AtomContext)
+function createUseSetter(KinfolkContext) {
+  const useReducer = createUseReducer(KinfolkContext)
   return function useSetter(atomRef) {
     return useReducer(atomRef, setReducer)
   }
