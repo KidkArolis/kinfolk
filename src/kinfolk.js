@@ -140,7 +140,7 @@ function getAtom(atomStates, atomRef) {
 
     if (has(atomMeta, 'selectorFn')) {
       atom.selectorFn = atomMeta.selectorFn
-      atom.equal = atomMeta.equal || Object.is
+      atom.equal = atomMeta.equal || shallowEqual
       atom.memo = new Map()
       atom.label = atom.label || `selector${++selectorLabel}`
     } else {
@@ -364,6 +364,45 @@ export function createStore() {
     },
   }
   return store
+}
+
+/**
+ * Slightly fancy shallow equality comparator that checks for
+ *  - object equality
+ *  - shallow object equality by matching all keys
+ *  - shallow array equality by matching all items
+ *
+ * this will catch some cases where values computed in selectors
+ * will get memoised more easily in cases they return shallowly
+ * equal objects or arrays
+ */
+function shallowEqual(a, b) {
+  return Object.is(a, b) || objEqual(a, b) || arrEqual(a, b)
+}
+
+function objEqual(a, b) {
+  if (a === b) return true
+  if (!a || !b) return false
+  if (!isObject(a) || !isObject(b)) return false
+  for (const k in a) if (a[k] !== b[k]) return false
+  for (const k in b) if (!(k in a)) return false
+  return true
+}
+
+function arrEqual(a, b) {
+  if (a === b) return true
+  if (!a || !b) return false
+  if (!Array.isArray(a) || !Array.isArray(b)) return false
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false
+  return true
+}
+
+function isObject(obj) {
+  return (
+    typeof obj === 'object' &&
+    Object.prototype.toString.call(obj) === '[object Object]'
+  )
 }
 
 function assert(invariant, message) {

@@ -551,6 +551,79 @@ test('updating atoms via store', async (t) => {
   t.deepEqual(__selectors, ['val1', 'double', 'nth', 'val2'])
 })
 
+test('useSelector will memo values using a shallow comparator by default', async (t) => {
+  const store = createStore()
+  const counter = atom(0, { label: 'counter' })
+
+  function App() {
+    return (
+      <>
+        <Button />
+        <Item />
+      </>
+    )
+  }
+
+  function Button() {
+    const setCounter = useSetter(counter)
+    return <button onClick={() => setCounter((s) => s + 1)}>Next step</button>
+  }
+
+  function Item() {
+    const renders = useRef(0)
+    renders.current += 1
+
+    const case1 = useSelector(() => (counter() < 3 ? 'a' : 'b'), [])
+    const case2 = useSelector(
+      () => (counter() < 3 ? { a: 1, b: 2 } : { a: 1 }),
+      [],
+    )
+    const case3 = useSelector(() => (counter() < 3 ? [1, 2, 3] : [1, 2]), [])
+
+    return (
+      <div className='item'>
+        <div className='case1'>{case1}</div>
+        <div className='case2'>{JSON.stringify(case2)}</div>
+        <div className='case3'>{JSON.stringify(case3)}</div>
+        <div className='renderCount'>{renders.current}</div>
+      </div>
+    )
+  }
+
+  const { container } = render(
+    <Provider store={store}>
+      <App />
+    </Provider>,
+  )
+
+  t.is(store.get(counter), 0)
+  t.is(container.querySelector('.case1').innerHTML, 'a')
+  t.is(container.querySelector('.case2').innerHTML, '{"a":1,"b":2}')
+  t.is(container.querySelector('.case3').innerHTML, '[1,2,3]')
+  t.is(container.querySelector('.renderCount').innerHTML, '1')
+
+  fireEvent.click(container.querySelector('button'))
+  t.is(store.get(counter), 1)
+  t.is(container.querySelector('.case1').innerHTML, 'a')
+  t.is(container.querySelector('.case2').innerHTML, '{"a":1,"b":2}')
+  t.is(container.querySelector('.case3').innerHTML, '[1,2,3]')
+  t.is(container.querySelector('.renderCount').innerHTML, '1')
+
+  fireEvent.click(container.querySelector('button'))
+  t.is(store.get(counter), 2)
+  t.is(container.querySelector('.case1').innerHTML, 'a')
+  t.is(container.querySelector('.case2').innerHTML, '{"a":1,"b":2}')
+  t.is(container.querySelector('.case3').innerHTML, '[1,2,3]')
+  t.is(container.querySelector('.renderCount').innerHTML, '1')
+
+  fireEvent.click(container.querySelector('button'))
+  t.is(store.get(counter), 3)
+  t.is(container.querySelector('.case1').innerHTML, 'b')
+  t.is(container.querySelector('.case2').innerHTML, '{"a":1}')
+  t.is(container.querySelector('.case3').innerHTML, '[1,2]')
+  t.is(container.querySelector('.renderCount').innerHTML, '2')
+})
+
 function mounted(store) {
   const atomStates = Array.from(store.atomStates.values())
   return atomStates.map((a) => a.label)
