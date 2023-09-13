@@ -5,8 +5,8 @@
   "main": "dist/cjs/kinfolk.js",
   "module": "dist/esm/kinfolk.js",
   "sideEffects": false,
-  "directories": {
-    "src": "src"
+  "engines": {
+    "node": ">=16"
   },
   "scripts": {
     "test": "npm run lint && ava",
