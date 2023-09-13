@@ -9,7 +9,7 @@ import {
   selector,
   useSelector,
   useSetter,
-} from '../src/kinfolk.js'
+} from '../../src/kinfolk.js'
 import './styles.css'
 
 const store = createStore()

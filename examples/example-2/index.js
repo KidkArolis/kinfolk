@@ -7,7 +7,7 @@ import {
   useSelector,
   useSetter,
   useReducer,
-} from '../src/kinfolk.js'
+} from '../../src/kinfolk.js'
 import './styles.css'
 
 // atoms
@@ -27,7 +27,7 @@ function App() {
   return (
     <>
       <Increments />
-      {shouldShowNesting > 3 ? null : <Nesting />}
+      {shouldShowNesting ? <Nesting /> : null}
     </>
   )
 }
