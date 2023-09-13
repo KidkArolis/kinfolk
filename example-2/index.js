@@ -96,7 +96,7 @@ function NestedChild2() {
 }
 
 createRoot(document.querySelector('#root')).render(
-  <Provider onMount={(store) => (window.store = store)}>
+  <Provider getAtomStates={(store) => (window.store = store)}>
     <App />
   </Provider>,
 )

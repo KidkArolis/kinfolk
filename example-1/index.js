@@ -15,8 +15,8 @@ const counter = atom(0, { label: 'counter' })
 const double = selector(() => counter() * 2, { label: 'double' })
 
 function App() {
-  const val = useSelector(counter, [])
-  const dub = useSelector(double, [])
+  const val = useSelector(counter)
+  const dub = useSelector(double)
   const set = useSetter(counter)
   return (
     <div>
@@ -26,7 +26,7 @@ function App() {
 }
 
 createRoot(document.querySelector('#root')).render(
-  <Provider>
+  <Provider getAtomStates={(store) => (window.store = store)}>
     <App />
   </Provider>,
 )

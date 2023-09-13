@@ -100,7 +100,7 @@ function evaluateSelectorFn(atomStates, atomRef, arg) {
  * Provider stores the state of the atoms to be shared
  * within the wrapped subtree.
  */
-export function Provider({ children, getAtomStates }) {
+export function Provider({ getAtomStates, children }) {
   const [atomStates] = useState(() => new Map())
 
   useEffect(() => {
