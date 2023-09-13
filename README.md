@@ -4,10 +4,33 @@ Atoms and selectors for React.
 
 ## Why?
 
-Kinfolk will help:
+Kinfolk is a more powerful context for React that allows:
 
-- share state across wide parts of the application
-- memoize values computed from state
+- sharing state across wide parts of the application
+- depending on slices of state and derived state
+- memoising the values computed from state
+- creating multiple atoms and selectors that form a granular dependency graph
+
+The granularity of atoms and selectors can also be seen as an alternative to signals, because it allows to create granular fine tuned re-renders.
+
+The benefits of this over React Context are:
+
+- Context is not recommended for storing many values, and subscribing to frequent changes
+- <Context.Provider /> component re-renders the entire tree underneath on each state change
+- Context does not allow granular, memoised subscriptions
+
+## Why is it performant?
+
+Kinfolk has several layers that makes it a performant approach:
+
+- Using `useSyncExternalStore` bails from re-rendering if state didn't change
+- Batched rerenders
+- Only affected components are rerendered
+- The entire affected subtree is rerendered only once
+- Selector computations are cached based on referential equality of inputs
+- Shallow equals allows returning shallowly equal objects and arrays
+- Selectors allow depending on a small slice of state and/or a computed value
+- useSetter is separate from useSelector to avoid re-rendering on state changes
 
 ## API
 
@@ -74,26 +97,10 @@ function FilterBlock() {
 }
 ```
 
-The benefits of this over tiny-atom are:
+## Alternatives
 
-- React concurrent mode compatible, using useSyncExternalStore
-- Allows using many atoms, more inline with React’s component model compared to the “global store” approach
-- Better ergonomics for local / componetised state
-- Removes the need for reselect - memoisation is built in
-
-The benefits of this over React Context are:
-
-Context is not great/recommended for storing many values, and subscribing to frequent changes
-<Context.Provider /> component re-renders the entire tree underneath on each state change
-Context does not allow granular, memoised subscriptions
-Easier to get going without having to invent custom wrapper logic around context
-
-But you know, not sure. React team is kind of pushing towards the server+client fusion with React Server Components. The state, the context, data fetching kind of melts away, you async/await on data and pass it to components as props. And of course we’re also looking to move to Relay and GraphQL for data fetching and that might remove lots of state (Note: relay internally still has to manage global state/cache!). I believe there’s still a case to be made for client side state in many scenarios and so having “the best” approach is appealing.
-
-Alternatives:
-
-- redux - meh, global store is not ideal for large apps
-- tiny-atom - same flaw as redux, docs out of date, oops, and also see above for more flaws
-- zustand - neat, simple, also offers subscribing to slices of state
-- recoil - huge (bigger codebase than React? :thinking:), a bit complicated and scary
-- jotai - feature rich, but at the cost of api succintness IMO
+- redux - global store is not ideal for large apps, React is modular and so is Kinfolk
+- tiny-atom - same flaws as redux, outdated implementation that's not React 18 compatible
+- zustand - neat and simple and also offers subscribing to slices of state
+- recoil - inspiration for Kinfolk, bigger codebase than React with large API surface
+- jotai - feature rich, but at the cost of API surface area / clarity
