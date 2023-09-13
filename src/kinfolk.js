@@ -39,13 +39,6 @@ import React, {
  */
 const atomMetas = new WeakMap()
 
-/**
- * Context is where we keep the store of atoms for each
- * different React subtree, typically you'll use one only
- * but you can use multiple ones.
- */
-const AtomContext = createReactContext()
-
 /*
  * Indices for default atom and selector labeling
  */
