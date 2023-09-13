@@ -1,5 +1,5 @@
 import React, {
-  createContext,
+  createContext as createReactContext,
   useState,
   useContext,
   useCallback,
@@ -44,7 +44,7 @@ const atomMetas = new WeakMap()
  * different React subtree, typically you'll use one only
  * but you can use multiple ones.
  */
-const AtomContext = createContext()
+const AtomContext = createReactContext()
 
 /*
  * Indices for default atom and selector labeling
@@ -96,14 +96,33 @@ function evaluateSelectorFn(atomStates, atomRef, arg) {
 }
 
 /**
+ * Allows creating an isolated context
+ * for use within libraries, while still allowing
+ * to share the store by passing in the same store
+ * instance to the Provider
+ */
+export function createContext() {
+  const AtomContext = createReactContext()
+  const Provider = createProvider(AtomContext)
+  const useSetter = createUseSetter(AtomContext)
+  const useReducer = createUseReducer(AtomContext)
+  const useSelector = createUseSelector(AtomContext)
+  return { atom, selector, Provider, useSetter, useReducer, useSelector }
+}
+
+export const { Provider, useSetter, useReducer, useSelector } = createContext()
+
+/**
  * Provider stores the state of the atoms to be shared
  * within the wrapped subtree.
  */
-export function Provider({ store, children }) {
-  const [{ atomStates }] = useState(() => store || createStore())
-  return (
-    <AtomContext.Provider value={atomStates}>{children}</AtomContext.Provider>
-  )
+function createProvider(AtomContext) {
+  return function Provider({ store, children }) {
+    const [{ atomStates }] = useState(() => store || createStore())
+    return (
+      <AtomContext.Provider value={atomStates}>{children}</AtomContext.Provider>
+    )
+  }
 }
 
 export function atom(initialState, { label } = {}) {
@@ -244,34 +263,36 @@ function subscribe(atomStates, atomRef, fn) {
  * Hook to subscribe to atom/selector value
  */
 
-export function useSelector(selectorFnOrRef, deps, options = {}) {
-  const atomStates = useContext(AtomContext)
+function createUseSelector(AtomContext) {
+  return function useSelector(selectorFnOrRef, deps, options = {}) {
+    const atomStates = useContext(AtomContext)
 
-  // in case someone passed in an atomRef or selectorRef
-  // we wrap it into a selector function that reads the value
-  const selectorFn = isAtomOrSelectorRef(selectorFnOrRef)
-    ? // eslint-disable-next-line react-hooks/rules-of-hooks
-      useCallback(() => selectorFnOrRef(), [selectorFnOrRef])
-    : // eslint-disable-next-line react-hooks/rules-of-hooks
-      useCallback(selectorFnOrRef, deps)
+    // in case someone passed in an atomRef or selectorRef
+    // we wrap it into a selector function that reads the value
+    const selectorFn = isAtomOrSelectorRef(selectorFnOrRef)
+      ? // eslint-disable-next-line react-hooks/rules-of-hooks
+        useCallback(() => selectorFnOrRef(), [selectorFnOrRef])
+      : // eslint-disable-next-line react-hooks/rules-of-hooks
+        useCallback(selectorFnOrRef, deps)
 
-  // notice, we don't re-look at the options after memoising the selectorFn
-  // if the users really want to update equal or label, they should pass
-  // that into the dependencies
-  const atomRef = useMemo(
-    () => selector(selectorFn, { ...options, persist: false }),
-    [selectorFn],
-  )
+    // notice, we don't re-look at the options after memoising the selectorFn
+    // if the users really want to update equal or label, they should pass
+    // that into the dependencies
+    const atomRef = useMemo(
+      () => selector(selectorFn, { ...options, persist: false }),
+      [selectorFn],
+    )
 
-  const { subscribe_, getSnapshot_ } = useMemo(
-    () => ({
-      subscribe_: (cb) => subscribe(atomStates, atomRef, cb),
-      getSnapshot_: () => getSnapshot(atomStates, atomRef),
-    }),
-    [atomStates, atomRef],
-  )
+    const { subscribe_, getSnapshot_ } = useMemo(
+      () => ({
+        subscribe_: (cb) => subscribe(atomStates, atomRef, cb),
+        getSnapshot_: () => getSnapshot(atomStates, atomRef),
+      }),
+      [atomStates, atomRef],
+    )
 
-  return useSyncExternalStore(subscribe_, getSnapshot_)
+    return useSyncExternalStore(subscribe_, getSnapshot_)
+  }
 }
 
 /**
@@ -291,22 +312,27 @@ function update(atomStates, atomRef, updater) {
 /**
  * Hook for updating atom using a reducer
  */
-export function useReducer(atomRef, reducer) {
-  const atomStates = useContext(AtomContext)
+function createUseReducer(AtomContext) {
+  return function useReducer(atomRef, reducer) {
+    const atomStates = useContext(AtomContext)
 
-  return useCallback(
-    function dispatch(action) {
-      update(atomStates, atomRef, (state) => reducer(state, action))
-    },
-    [atomStates, atomRef, reducer],
-  )
+    return useCallback(
+      function dispatch(action) {
+        update(atomStates, atomRef, (state) => reducer(state, action))
+      },
+      [atomStates, atomRef, reducer],
+    )
+  }
 }
 
 /**
  * Hook for updating atom using a setter
  */
-export function useSetter(atomRef) {
-  return useReducer(atomRef, setReducer)
+function createUseSetter(AtomContext) {
+  const useReducer = createUseReducer(AtomContext)
+  return function useSetter(atomRef) {
+    return useReducer(atomRef, setReducer)
+  }
 }
 
 /**
@@ -321,8 +347,6 @@ function setReducer(state, update) {
  * Store is where atomStates are stored,
  * and can be used to externally (outside of React render tree)
  * inspect or modify the contents of the store
- *
- * @return {[type]} [description]
  */
 export function createStore() {
   const store = {
