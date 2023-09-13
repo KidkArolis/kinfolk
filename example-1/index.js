@@ -1,7 +1,7 @@
 /* eslint-disable react/jsx-no-bind */
 
 import React from 'react'
-import ReactDOM from 'react-dom'
+import { createRoot } from 'react-dom/client'
 import {
   Provider,
   atom,
@@ -11,12 +11,12 @@ import {
 } from '../src/kinfolk.js'
 import './styles.css'
 
-const counter = atom(0)
-const double = selector(() => counter() * 2)
+const counter = atom(0, { label: 'counter' })
+const double = selector(() => counter() * 2, { label: 'double' })
 
 function App() {
-  const val = useSelector(() => counter())
-  const dub = useSelector(() => double())
+  const val = useSelector(counter, [])
+  const dub = useSelector(double, [])
   const set = useSetter(counter)
   return (
     <div>
@@ -25,9 +25,8 @@ function App() {
   )
 }
 
-ReactDOM.render(
+createRoot(document.querySelector('#root')).render(
   <Provider>
     <App />
   </Provider>,
-  document.querySelector('#root'),
 )

@@ -250,12 +250,15 @@ function subscribe(atomStates, atomRef, fn) {
 export function useSelector(selectorFn, deps, equal, label) {
   const atomStates = useContext(AtomContext)
 
-  const atomRef = useMemo(() => {
-    return selector(
-      isAtomOrSelectorRef(selectorFn) ? () => selectorFn() : selectorFn,
-      { equal, label },
-    )
-  }, deps)
+  const atomRef = useMemo(
+    () => {
+      return selector(
+        isAtomOrSelectorRef(selectorFn) ? () => selectorFn() : selectorFn,
+        { equal, label },
+      )
+    },
+    isAtomOrSelectorRef(selectorFn) ? [selectorFn] : deps,
+  )
 
   const { subscribe_, getSnapshot_ } = useMemo(() => {
     const subscribe_ = (cb) => subscribe(atomStates, atomRef, cb)
@@ -282,23 +285,19 @@ export function useReducer(atomRef, reducer) {
         notify(atomStates, atomRef)
       }
     },
-    [reducer],
+    [atomStates, atomRef, reducer],
   )
 }
 
 /**
  * Hook for updating atom using a setter
  */
-export function useSetter(atomRef) {
-  const set = useReducer(atomRef, (state, update) => {
-    if (typeof update === 'function') {
-      return update(state)
-    } else {
-      return update
-    }
-  })
+function setReducer(state, update) {
+  return typeof update === 'function' ? update(state) : update
+}
 
-  return set
+export function useSetter(atomRef) {
+  return useReducer(atomRef, setReducer)
 }
 
 function assert(invariant, message) {

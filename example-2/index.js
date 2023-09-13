@@ -1,5 +1,5 @@
 import React from 'react'
-import ReactDOM from 'react-dom'
+import { createRoot } from 'react-dom/client'
 import {
   Provider,
   atom,
@@ -23,6 +23,16 @@ const times = selector((t) => counter() * t)
 const increment = (state, payload) => state + 1
 
 function App() {
+  const shouldShowNesting = useSelector(() => counter() <= 3, [])
+  return (
+    <>
+      <Increments />
+      {shouldShowNesting > 3 ? null : <Nesting />}
+    </>
+  )
+}
+
+function Increments() {
   // selecting atom
   const val = useSelector(() => counter(), [])
 
@@ -40,14 +50,11 @@ function App() {
   const inc = useReducer(counter, increment)
 
   return (
-    <div>
-      <div className='box'>
-        <div>
-          Value: {val} / {dub} / {trip} / {tim4} / {tim5}
-        </div>
-        <button onClick={() => inc()}>Increment</button>
+    <div className='box'>
+      <div>
+        Value: {val} / {dub} / {trip} / {tim4} / {tim5}
       </div>
-      <div className='box'>{val > 3 ? null : <Nesting />}</div>
+      <button onClick={() => inc()}>Increment</button>
     </div>
   )
 }
@@ -58,7 +65,7 @@ function Nesting() {
   const val = useSelector(() => nested())
   console.log('Rendering <Nesting />')
   return (
-    <div>
+    <div className='box'>
       <div>Top: {val}</div>
       <NestedChild1 />
     </div>
@@ -88,9 +95,8 @@ function NestedChild2() {
   )
 }
 
-ReactDOM.render(
+createRoot(document.querySelector('#root')).render(
   <Provider onMount={(store) => (window.store = store)}>
     <App />
   </Provider>,
-  document.querySelector('#root'),
 )
