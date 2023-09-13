@@ -247,24 +247,29 @@ function subscribe(atomStates, atomRef, fn) {
  * Hook to subscribe to atom/selector value
  */
 
-export function useSelector(selectorFn, deps, equal, label) {
+export function useSelector(selectorFnOrRef, deps, options) {
   const atomStates = useContext(AtomContext)
 
-  const atomRef = useMemo(
-    () => {
-      return selector(
-        isAtomOrSelectorRef(selectorFn) ? () => selectorFn() : selectorFn,
-        { equal, label },
-      )
-    },
-    isAtomOrSelectorRef(selectorFn) ? [selectorFn] : deps,
-  )
+  // in case someone passed in an atomRef or selectorRef
+  // we wrap it into a selector function that reads the value
+  const selectorFn = isAtomOrSelectorRef(selectorFnOrRef)
+    ? // eslint-disable-next-line react-hooks/rules-of-hooks
+      useCallback(() => selectorFnOrRef(), [selectorFnOrRef])
+    : // eslint-disable-next-line react-hooks/rules-of-hooks
+      useCallback(selectorFnOrRef, deps)
 
-  const { subscribe_, getSnapshot_ } = useMemo(() => {
-    const subscribe_ = (cb) => subscribe(atomStates, atomRef, cb)
-    const getSnapshot_ = () => getSnapshot(atomStates, atomRef)
-    return { subscribe_, getSnapshot_ }
-  }, [atomStates, atomRef])
+  // notice, we don't re-look at the options after memoising the selectorFn
+  // if the users really want to update equal or label, they should pass
+  // that into the dependencies
+  const atomRef = useMemo(() => selector(selectorFn, options), [selectorFn])
+
+  const { subscribe_, getSnapshot_ } = useMemo(
+    () => ({
+      subscribe_: (cb) => subscribe(atomStates, atomRef, cb),
+      getSnapshot_: () => getSnapshot(atomStates, atomRef),
+    }),
+    [atomStates, atomRef],
+  )
 
   return useSyncExternalStore(subscribe_, getSnapshot_)
 }

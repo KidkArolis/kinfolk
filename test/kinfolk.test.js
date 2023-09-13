@@ -83,7 +83,7 @@ test('unmounting unused atoms', async (t) => {
   const double = selector(() => counter1() * 2, { label: 'counter-1-double' })
 
   function Counter({ id, atom }) {
-    const val = useSelector(() => atom(), [atom], undefined, `component-${id}`)
+    const val = useSelector(() => atom(), [atom], { label: `component-${id}` })
     return <div className={`content-${id}`}>{val}</div>
   }
 
@@ -364,8 +364,7 @@ test('useSelector only recomputes if dependencies change', async (t) => {
         }
       },
       [id],
-      undefined,
-      'sel-item' + id,
+      { label: 'sel-item' + id },
     )
 
     return (
@@ -413,8 +412,8 @@ test('selector family', async (t) => {
   const times = selector((multi) => counter() * multi, { label: 'times' })
 
   function App() {
-    const double = useSelector(() => times(2), [], undefined, 'double')
-    const triple = useSelector(() => times(3), [], undefined, 'triple')
+    const double = useSelector(() => times(2), [], { label: 'double' })
+    const triple = useSelector(() => times(3), [], { label: 'triple' })
 
     return (
       <div>
