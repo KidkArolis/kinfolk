@@ -137,7 +137,7 @@ const tripleCount = useSelector(() => counter() * 3, [], {
 
 ### `useSetter(atomRef)`
 
-Allows updating an atom with a setter that takes a value or an update function.
+Update an atom with a setter that takes a value or an update function.
 
 ```js
 const set = useSetter(counter)
@@ -145,9 +145,9 @@ set(1)
 set((c) => c + 1)
 ```
 
-### `useReducer()`
+### `useReducer(atomRef, reducer)`
 
-Allows updating an atom with a reducer.
+Update an atom with a reducer.
 
 ```js
 const calculator = (state, action) => {
