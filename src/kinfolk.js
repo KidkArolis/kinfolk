@@ -100,10 +100,10 @@ export function createContext() {
   const useSetter = createUseSetter(KinfolkContext)
   const useReducer = createUseReducer(KinfolkContext)
   const useSelector = createUseSelector(KinfolkContext)
-  return { atom, selector, Provider, useSetter, useReducer, useSelector }
+  return { atom, selector, Provider, useSelector, useSetter, useReducer }
 }
 
-export const { Provider, useSetter, useReducer, useSelector } = createContext()
+export const { Provider, useSelector, useSetter, useReducer } = createContext()
 
 /**
  * Provider stores the state of the atoms to be shared
