@@ -55,9 +55,11 @@ const __get = (...args) => __getters[__getters.length - 1](...args)
 
 function withGetter(get, fn) {
   __getters.push(get)
-  const val = fn()
-  __getters.pop()
-  return val
+  try {
+    return fn()
+  } finally {
+    __getters.pop()
+  }
 }
 
 function evaluateSelectorFn(atomStates, atomRef, arg) {
