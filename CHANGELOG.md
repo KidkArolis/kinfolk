@@ -1,3 +1,7 @@
+# 0.3.0
+
+- Upgrade all dependencies.
+
 # 0.2.0
 
 - Added documentation to the README
