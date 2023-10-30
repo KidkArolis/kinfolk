@@ -10,14 +10,20 @@ function _export(target, all) {
     })
 }
 _export(exports, {
-  createContext: function () {
-    return createContext
-  },
   Provider: function () {
     return Provider
   },
-  useSetter: function () {
-    return useSetter
+  atom: function () {
+    return atom
+  },
+  createContext: function () {
+    return createContext
+  },
+  createStore: function () {
+    return createStore
+  },
+  selector: function () {
+    return selector
   },
   useReducer: function () {
     return useReducer
@@ -25,14 +31,8 @@ _export(exports, {
   useSelector: function () {
     return useSelector
   },
-  atom: function () {
-    return atom
-  },
-  selector: function () {
-    return selector
-  },
-  createStore: function () {
-    return createStore
+  useSetter: function () {
+    return useSetter
   },
 })
 const _react = /*#__PURE__*/ _interop_require_wildcard(require('react'))
@@ -57,7 +57,9 @@ function _interop_require_wildcard(obj, nodeInterop) {
   if (cache && cache.has(obj)) {
     return cache.get(obj)
   }
-  var newObj = {}
+  var newObj = {
+    __proto__: null,
+  }
   var hasPropertyDescriptor =
     Object.defineProperty && Object.getOwnPropertyDescriptor
   for (var key in obj) {
@@ -106,11 +108,6 @@ function _interop_require_wildcard(obj, nodeInterop) {
  */ /**
  * A map of atomRef -> atomMeta storing all atomMetas ever created.
  */ const atomMetas = new WeakMap()
-/**
- * Context is where we keep the store of atoms for each
- * different React subtree, typically you'll use one only
- * but you can use multiple ones.
- */ const AtomContext = /*#__PURE__*/ (0, _react.createContext)()
 /*
  * Indices for default atom and selector labeling
  */ let atomLabel = 0
@@ -133,9 +130,11 @@ const __get = function () {
 }
 function withGetter(get, fn) {
   __getters.push(get)
-  const val = fn()
-  __getters.pop()
-  return val
+  try {
+    return fn()
+  } finally {
+    __getters.pop()
+  }
 }
 function evaluateSelectorFn(atomStates, atomRef, arg) {
   const atom = atomStates.get(atomRef)
@@ -165,30 +164,30 @@ function evaluateSelectorFn(atomStates, atomRef, arg) {
   return [val, inputs]
 }
 function createContext() {
-  const AtomContext = /*#__PURE__*/ (0, _react.createContext)()
-  const Provider = createProvider(AtomContext)
-  const useSetter = createUseSetter(AtomContext)
-  const useReducer = createUseReducer(AtomContext)
-  const useSelector = createUseSelector(AtomContext)
+  const KinfolkContext = /*#__PURE__*/ (0, _react.createContext)()
+  const Provider = createProvider(KinfolkContext)
+  const useSetter = createUseSetter(KinfolkContext)
+  const useReducer = createUseReducer(KinfolkContext)
+  const useSelector = createUseSelector(KinfolkContext)
   return {
     atom,
     selector,
     Provider,
+    useSelector,
     useSetter,
     useReducer,
-    useSelector,
   }
 }
-const { Provider, useSetter, useReducer, useSelector } = createContext()
+const { Provider, useSelector, useSetter, useReducer } = createContext()
 /**
  * Provider stores the state of the atoms to be shared
  * within the wrapped subtree.
- */ function createProvider(AtomContext) {
+ */ function createProvider(KinfolkContext) {
   return function Provider(param) {
     let { store, children } = param
     const [{ atomStates }] = (0, _react.useState)(() => store || createStore())
     return /*#__PURE__*/ _react.default.createElement(
-      AtomContext.Provider,
+      KinfolkContext.Provider,
       {
         value: atomStates,
       },
@@ -324,11 +323,11 @@ function getSnapshot(atomStates, atomRef, arg) {
 }
 /**
  * Hook to subscribe to atom/selector value
- */ function createUseSelector(AtomContext) {
+ */ function createUseSelector(KinfolkContext) {
   return function useSelector(selectorFnOrRef, deps) {
     let options =
       arguments.length > 2 && arguments[2] !== void 0 ? arguments[2] : {}
-    const atomStates = (0, _react.useContext)(AtomContext)
+    const atomStates = (0, _react.useContext)(KinfolkContext)
     // in case someone passed in an atomRef or selectorRef
     // we wrap it into a selector function that reads the value
     const selectorFn = isAtomOrSelectorRef(selectorFnOrRef)
@@ -369,9 +368,9 @@ function getSnapshot(atomStates, atomRef, arg) {
 }
 /**
  * Hook for updating atom using a reducer
- */ function createUseReducer(AtomContext) {
+ */ function createUseReducer(KinfolkContext) {
   return function useReducer(atomRef, reducer) {
-    const atomStates = (0, _react.useContext)(AtomContext)
+    const atomStates = (0, _react.useContext)(KinfolkContext)
     return (0, _react.useCallback)(
       function dispatch(action) {
         update(atomStates, atomRef, (state) => reducer(state, action))
@@ -382,8 +381,8 @@ function getSnapshot(atomStates, atomRef, arg) {
 }
 /**
  * Hook for updating atom using a setter
- */ function createUseSetter(AtomContext) {
-  const useReducer = createUseReducer(AtomContext)
+ */ function createUseSetter(KinfolkContext) {
+  const useReducer = createUseReducer(KinfolkContext)
   return function useSetter(atomRef) {
     return useReducer(atomRef, setReducer)
   }

@@ -92,11 +92,6 @@ import React, {
  */ /**
  * A map of atomRef -> atomMeta storing all atomMetas ever created.
  */ const atomMetas = new WeakMap()
-/**
- * Context is where we keep the store of atoms for each
- * different React subtree, typically you'll use one only
- * but you can use multiple ones.
- */ const AtomContext = /*#__PURE__*/ createReactContext()
 /*
  * Indices for default atom and selector labeling
  */ let atomLabel = 0
@@ -110,9 +105,11 @@ const __getters = [defaultGet]
 const __get = (...args) => __getters[__getters.length - 1](...args)
 function withGetter(get, fn) {
   __getters.push(get)
-  const val = fn()
-  __getters.pop()
-  return val
+  try {
+    return fn()
+  } finally {
+    __getters.pop()
+  }
 }
 function evaluateSelectorFn(atomStates, atomRef, arg) {
   const atom = atomStates.get(atomRef)
@@ -147,29 +144,29 @@ function evaluateSelectorFn(atomStates, atomRef, arg) {
  * to share the store by passing in the same store
  * instance to the Provider
  */ export function createContext() {
-  const AtomContext = /*#__PURE__*/ createReactContext()
-  const Provider = createProvider(AtomContext)
-  const useSetter = createUseSetter(AtomContext)
-  const useReducer = createUseReducer(AtomContext)
-  const useSelector = createUseSelector(AtomContext)
+  const KinfolkContext = /*#__PURE__*/ createReactContext()
+  const Provider = createProvider(KinfolkContext)
+  const useSetter = createUseSetter(KinfolkContext)
+  const useReducer = createUseReducer(KinfolkContext)
+  const useSelector = createUseSelector(KinfolkContext)
   return {
     atom,
     selector,
     Provider,
+    useSelector,
     useSetter,
     useReducer,
-    useSelector,
   }
 }
-export const { Provider, useSetter, useReducer, useSelector } = createContext()
+export const { Provider, useSelector, useSetter, useReducer } = createContext()
 /**
  * Provider stores the state of the atoms to be shared
  * within the wrapped subtree.
- */ function createProvider(AtomContext) {
+ */ function createProvider(KinfolkContext) {
   return function Provider({ store, children }) {
     const [{ atomStates }] = useState(() => store || createStore())
     return /*#__PURE__*/ React.createElement(
-      AtomContext.Provider,
+      KinfolkContext.Provider,
       {
         value: atomStates,
       },
@@ -298,9 +295,9 @@ function getSnapshot(atomStates, atomRef, arg) {
 }
 /**
  * Hook to subscribe to atom/selector value
- */ function createUseSelector(AtomContext) {
+ */ function createUseSelector(KinfolkContext) {
   return function useSelector(selectorFnOrRef, deps, options = {}) {
-    const atomStates = useContext(AtomContext)
+    const atomStates = useContext(KinfolkContext)
     // in case someone passed in an atomRef or selectorRef
     // we wrap it into a selector function that reads the value
     const selectorFn = isAtomOrSelectorRef(selectorFnOrRef) // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -343,9 +340,9 @@ function getSnapshot(atomStates, atomRef, arg) {
 }
 /**
  * Hook for updating atom using a reducer
- */ function createUseReducer(AtomContext) {
+ */ function createUseReducer(KinfolkContext) {
   return function useReducer(atomRef, reducer) {
-    const atomStates = useContext(AtomContext)
+    const atomStates = useContext(KinfolkContext)
     return useCallback(
       function dispatch(action) {
         update(atomStates, atomRef, (state) => reducer(state, action))
@@ -356,8 +353,8 @@ function getSnapshot(atomStates, atomRef, arg) {
 }
 /**
  * Hook for updating atom using a setter
- */ function createUseSetter(AtomContext) {
-  const useReducer = createUseReducer(AtomContext)
+ */ function createUseSetter(KinfolkContext) {
+  const useReducer = createUseReducer(KinfolkContext)
   return function useSetter(atomRef) {
     return useReducer(atomRef, setReducer)
   }
