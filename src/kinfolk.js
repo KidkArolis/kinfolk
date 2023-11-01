@@ -269,7 +269,7 @@ function createUseSelector(KinfolkContext) {
     const selectorFn = isAtomOrSelectorRef(selectorFnOrRef)
       ? // eslint-disable-next-line react-hooks/rules-of-hooks
         useCallback(() => selectorFnOrRef(), [selectorFnOrRef])
-      : // eslint-disable-next-line react-hooks/rules-of-hooks
+      : // eslint-disable-next-line react-hooks/rules-of-hooks, react-hooks/exhaustive-deps
         useCallback(selectorFnOrRef, deps)
 
     // notice, we don't re-look at the options after memoising the selectorFn
@@ -277,6 +277,7 @@ function createUseSelector(KinfolkContext) {
     // that into the dependencies
     const atomRef = useMemo(
       () => selector(selectorFn, { ...options, persist: false }),
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       [selectorFn],
     )
 

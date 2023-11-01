@@ -149,7 +149,7 @@ test('unmounting unused atoms', async (t) => {
     const set = useSetter(atom)
     useEffect(() => {
       set((c) => c + 1)
-    }, [atom])
+    }, [set, atom])
     return null
   }
 
@@ -363,7 +363,7 @@ test('useSelector for reading data cache allows optimal re-renders', async (t) =
       update()
       update()
       update()
-    }, [step])
+    }, [setCache, step])
 
     return <button onClick={() => setStep((s) => s + 1)}>Next step</button>
   }

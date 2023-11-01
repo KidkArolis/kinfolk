@@ -1,3 +1,7 @@
+# 0.5.0
+
+- Upgrade deps to fix security alerts.
+
 # 0.4.0
 
 - Handle errors in selectors without breaking global internal kinfolk state. (https://github.com/KidkArolis/kinfolk/pull/2)
