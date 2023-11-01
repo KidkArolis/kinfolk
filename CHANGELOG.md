@@ -1,3 +1,7 @@
+# 0.5.1
+
+- Upgrade dependencies of the examples.
+
 # 0.5.0
 
 - Upgrade deps to fix security alerts.
