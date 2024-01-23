@@ -5,6 +5,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import {
   Provider,
   createStore,
+  createContext,
   atom,
   selector,
   useSetter,
@@ -655,6 +656,35 @@ test('useSelector will memo values using a shallow comparator by default', async
   t.is(container.querySelector('.case2').innerHTML, '{"a":1}')
   t.is(container.querySelector('.case3').innerHTML, '[1,2]')
   t.is(container.querySelector('.renderCount').innerHTML, '2')
+})
+
+test('selector mixing atoms from different contexts', async (t) => {
+  const store = createStore()
+  const { Provider: Provider2, atom: atom2 } = createContext()
+
+  const counter1 = atom(21)
+  const counter2 = atom2(9)
+  const sum = selector(() => counter1() + counter2())
+
+  function App() {
+    const val1 = useSelector(sum)
+
+    return (
+      <div>
+        <div className='content-1'>{val1}</div>
+      </div>
+    )
+  }
+
+  const { container } = render(
+    <Provider store={store}>
+      <Provider2 store={store}>
+        <App />
+      </Provider2>
+    </Provider>,
+  )
+
+  t.is(container.querySelector('.content-1').innerHTML, '30')
 })
 
 function mounted(store) {
