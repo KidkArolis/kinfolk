@@ -9,8 +9,12 @@ const w = watch ? ' -w' : ''
   await sh('mkdir -p dist')
 
   const swc = './node_modules/.bin/swc'
-  await sh(`${swc}${w} --no-swcrc src/kinfolk.js -o dist/esm/kinfolk.mjs --config-file=./.swc-esm`)
-  await sh(`${swc}${w} --no-swcrc src/kinfolk.js -o dist/cjs/kinfolk.cjs --config-file=./.swc-cjs`)
+  await sh(
+    `${swc}${w} --no-swcrc src/kinfolk.js -o dist/esm/kinfolk.mjs --config-file=./.swc-esm`,
+  )
+  await sh(
+    `${swc}${w} --no-swcrc src/kinfolk.js -o dist/cjs/kinfolk.cjs --config-file=./.swc-cjs`,
+  )
 
   const prettier = './node_modules/.bin/prettier'
   await sh(`${prettier} --write ./dist`)
