@@ -2,8 +2,8 @@
   "name": "kinfolk",
   "version": "0.5.1",
   "description": "Atoms and selectors for React",
-  "main": "dist/cjs/kinfolk.js",
-  "module": "dist/esm/kinfolk.js",
+  "main": "dist/cjs/kinfolk.cjs",
+  "module": "dist/esm/kinfolk.mjs",
   "sideEffects": false,
   "engines": {
     "node": ">=16"
@@ -42,5 +42,12 @@
     "ignore": [
       "dist"
     ]
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "require": "./dist/cjs/kinfolk.cjs",
+      "import": "./dist/esm/kinfolk.mjs"
+    }
   }
 }
