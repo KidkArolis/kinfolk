@@ -1,3 +1,7 @@
+# 0.6.0
+
+- Add support for Node.js native ESM mode - build kinfolk with .cjs and .mjs and add exports
+
 # 0.5.1
 
 - Upgrade dependencies of the examples.
