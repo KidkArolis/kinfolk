@@ -341,7 +341,7 @@ function getSnapshot(atomStates, atomRef, arg) {
         selector(selectorFn, {
           ...options,
           persist: false,
-        }),
+        }), // eslint-disable-next-line react-hooks/exhaustive-deps
       [selectorFn],
     )
     const { subscribe_, getSnapshot_ } = (0, _react.useMemo)(

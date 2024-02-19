@@ -301,7 +301,7 @@ function getSnapshot(atomStates, atomRef, arg) {
     // in case someone passed in an atomRef or selectorRef
     // we wrap it into a selector function that reads the value
     const selectorFn = isAtomOrSelectorRef(selectorFnOrRef) // eslint-disable-next-line react-hooks/rules-of-hooks
-      ? useCallback(() => selectorFnOrRef(), [selectorFnOrRef]) // eslint-disable-next-line react-hooks/rules-of-hooks
+      ? useCallback(() => selectorFnOrRef(), [selectorFnOrRef]) // eslint-disable-next-line react-hooks/rules-of-hooks, react-hooks/exhaustive-deps
       : useCallback(selectorFnOrRef, deps)
     // notice, we don't re-look at the options after memoising the selectorFn
     // if the users really want to update equal or label, they should pass
@@ -313,7 +313,7 @@ function getSnapshot(atomStates, atomRef, arg) {
           _object_spread_props(_object_spread({}, options), {
             persist: false,
           }),
-        ),
+        ), // eslint-disable-next-line react-hooks/exhaustive-deps
       [selectorFn],
     )
     const { subscribe_, getSnapshot_ } = useMemo(
