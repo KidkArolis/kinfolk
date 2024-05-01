@@ -6,7 +6,7 @@ const path = require('path')
 const swcrc = JSON.parse(fs.readFileSync(path.join(__dirname, '../.swc-cjs')))
 
 pirates.addHook(
-  code => {
+  (code) => {
     const result = transformSync(code, swcrc)
     return result.code
   },
