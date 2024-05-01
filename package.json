@@ -21,22 +21,20 @@
   "devDependencies": {
     "@swc/cli": "^0.3.12",
     "@swc/core": "^1.4.17",
-    "@swc/register": "^0.1.10",
     "@testing-library/react": "^15.0.5",
     "ava": "^6.1.2",
     "execa": "^8.0.1",
     "healthier": "^7.0.0",
     "jsdom": "^24.0.0",
     "nyc": "^15.1.0",
+    "pirates": "^4.0.6",
     "prettier": "^3.2.5"
   },
   "ava": {
     "files": [
       "test/*.test.js"
     ],
-    "require": [
-      "@swc/register"
-    ]
+    "require": ["./test/register.js"]
   },
   "healthier": {
     "ignore": [
