@@ -1,3 +1,7 @@
+# 0.7.0
+
+- Upgrade deps to fix security alerts.
+
 # 0.6.0
 
 - Add support for Node.js native ESM mode - build kinfolk with .cjs and .mjs and add exports
