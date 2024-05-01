@@ -1,3 +1,7 @@
+# 0.7.1
+
+- Remove .swcrc to fix importing kinfolk as esm package in certain bundler configurations
+
 # 0.7.0
 
 - Upgrade deps to fix security alerts.
