@@ -1,6 +1,6 @@
 {
   "name": "kinfolk",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "Atoms and selectors for React",
   "main": "dist/cjs/kinfolk.cjs",
   "module": "dist/esm/kinfolk.mjs",
