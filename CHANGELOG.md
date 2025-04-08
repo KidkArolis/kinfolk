@@ -1,3 +1,7 @@
+# 0.7.3
+
+- Upgrade deps to fix security alerts.
+
 # 0.7.2
 
 - Upgrade deps to fix security alerts.
