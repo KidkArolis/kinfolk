@@ -19,16 +19,16 @@
   "author": "Karolis Narkevicius <hey@k8.lt>",
   "license": "ISC",
   "devDependencies": {
-    "@swc/cli": "^0.6.0",
-    "@swc/core": "^1.11.18",
+    "@swc/cli": "^0.7.8",
+    "@swc/core": "^1.13.5",
     "@testing-library/react": "^16.3.0",
-    "ava": "^6.2.0",
-    "execa": "^9.5.2",
+    "ava": "^6.4.1",
+    "execa": "^9.6.0",
     "healthier": "^7.0.0",
-    "jsdom": "^26.0.0",
+    "jsdom": "^26.1.0",
     "nyc": "^17.1.0",
     "pirates": "^4.0.7",
-    "prettier": "^3.5.3"
+    "prettier": "^3.6.2"
   },
   "ava": {
     "files": [
