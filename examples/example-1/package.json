@@ -9,10 +9,10 @@
   "author": "Karolis Narkevicius <hey@k8.lt>",
   "license": "ISC",
   "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
   },
   "devDependencies": {
-    "jetpack": "^2.0.0"
+    "jetpack": "^4.2.0"
   }
 }
