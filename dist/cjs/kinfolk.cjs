@@ -6,32 +6,32 @@ function _export(target, all) {
   for (var name in all)
     Object.defineProperty(target, name, {
       enumerable: true,
-      get: all[name],
+      get: Object.getOwnPropertyDescriptor(all, name).get,
     })
 }
 _export(exports, {
-  Provider: function () {
+  get Provider() {
     return Provider
   },
-  atom: function () {
+  get atom() {
     return atom
   },
-  createContext: function () {
+  get createContext() {
     return createContext
   },
-  createStore: function () {
+  get createStore() {
     return createStore
   },
-  selector: function () {
+  get selector() {
     return selector
   },
-  useReducer: function () {
+  get useReducer() {
     return useReducer
   },
-  useSelector: function () {
+  get useSelector() {
     return useSelector
   },
-  useSetter: function () {
+  get useSetter() {
     return useSetter
   },
 })
@@ -118,16 +118,7 @@ let selectorLabel = 0
  */ const defaultGet = () =>
   assert(false, 'Atoms can only be read in selectors')
 const __getters = [defaultGet]
-const __get = function () {
-  for (
-    var _len = arguments.length, args = new Array(_len), _key = 0;
-    _key < _len;
-    _key++
-  ) {
-    args[_key] = arguments[_key]
-  }
-  return __getters[__getters.length - 1](...args)
-}
+const __get = (...args) => __getters[__getters.length - 1](...args)
 function withGetter(get, fn) {
   __getters.push(get)
   try {
@@ -183,8 +174,7 @@ const { Provider, useSelector, useSetter, useReducer } = createContext()
  * Provider stores the state of the atoms to be shared
  * within the wrapped subtree.
  */ function createProvider(KinfolkContext) {
-  return function Provider(param) {
-    let { store, children } = param
+  return function Provider({ store, children }) {
     const [{ atomStates }] = (0, _react.useState)(() => store || createStore())
     return /*#__PURE__*/ _react.default.createElement(
       KinfolkContext.Provider,
@@ -195,9 +185,7 @@ const { Provider, useSelector, useSetter, useReducer } = createContext()
     )
   }
 }
-function atom(initialState) {
-  let { label } =
-    arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : {}
+function atom(initialState, { label } = {}) {
   const atomRef = () => __get(atomRef)
   if (label) atomRef.label = label
   const atomMeta = {
@@ -206,12 +194,7 @@ function atom(initialState) {
   atomMetas.set(atomRef, atomMeta)
   return atomRef
 }
-function selector(selectorFn) {
-  let {
-    label,
-    equal,
-    persist = true,
-  } = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : {}
+function selector(selectorFn, { label, equal, persist = true } = {}) {
   const selectorRef = (arg) => __get(selectorRef, arg)
   if (label) selectorRef.label = label
   const selectorMeta = {
@@ -324,9 +307,7 @@ function getSnapshot(atomStates, atomRef, arg) {
 /**
  * Hook to subscribe to atom/selector value
  */ function createUseSelector(KinfolkContext) {
-  return function useSelector(selectorFnOrRef, deps) {
-    let options =
-      arguments.length > 2 && arguments[2] !== void 0 ? arguments[2] : {}
+  return function useSelector(selectorFnOrRef, deps, options = {}) {
     const atomStates = (0, _react.useContext)(KinfolkContext)
     // in case someone passed in an atomRef or selectorRef
     // we wrap it into a selector function that reads the value
