@@ -1,4 +1,3 @@
-/* eslint-disable import/no-commonjs */
 const { transformSync } = require('@swc/core')
 const pirates = require('pirates')
 const fs = require('fs')

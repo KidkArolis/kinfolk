@@ -6,11 +6,11 @@
   "module": "dist/esm/kinfolk.mjs",
   "sideEffects": false,
   "engines": {
-    "node": ">=16"
+    "node": ">=20"
   },
   "scripts": {
     "test": "npm run lint && ava",
-    "lint": "healthier && prettier --check '**/*.js'",
+    "lint": "eslint && prettier --check '**/*.js'",
     "format": "prettier --write '**/*.js'",
     "coverage": "nyc --reporter html ava",
     "build": "node ./build.js",
@@ -23,9 +23,11 @@
     "@swc/core": "^1.13.5",
     "@testing-library/react": "^16.3.0",
     "ava": "^6.4.1",
+    "eslint": "^9.34.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
     "execa": "^9.6.0",
-    "healthier": "^7.0.0",
     "jsdom": "^26.1.0",
+    "neostandard": "^0.12.2",
     "nyc": "^17.1.0",
     "pirates": "^4.0.7",
     "prettier": "^3.6.2"
@@ -36,11 +38,6 @@
     ],
     "require": [
       "./test/register.js"
-    ]
-  },
-  "healthier": {
-    "ignore": [
-      "dist"
     ]
   },
   "exports": {
