@@ -20,7 +20,7 @@ const double = selector(() => counter() * 2)
 const times = selector((t) => counter() * t)
 
 // updates
-const increment = (state, payload) => state + 1
+const increment = (state) => state + 1
 
 function App() {
   const shouldShowNesting = useSelector(() => counter() <= 3, [])

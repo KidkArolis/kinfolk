@@ -10,8 +10,8 @@
   },
   "scripts": {
     "test": "npm run lint && ava",
-    "lint": "eslint && prettier --check '**/*.js'",
-    "format": "prettier --write '**/*.js'",
+    "lint": "oxlint && oxfmt --check '**/*.js'",
+    "format": "oxfmt --write '**/*.js'",
     "coverage": "nyc --reporter html ava",
     "build": "node ./build.js",
     "watch": "node ./build.js -w"
@@ -19,18 +19,16 @@
   "author": "Karolis Narkevicius <hey@k8.lt>",
   "license": "ISC",
   "devDependencies": {
-    "@swc/cli": "^0.7.9",
-    "@swc/core": "^1.15.3",
-    "@testing-library/react": "^16.3.0",
-    "ava": "^6.4.1",
-    "eslint": "^9.39.1",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "execa": "^9.6.0",
-    "jsdom": "^27.2.0",
-    "neostandard": "^0.12.2",
-    "nyc": "^17.1.0",
-    "pirates": "^4.0.7",
-    "prettier": "^3.6.2"
+    "@swc/cli": "^0.8.1",
+    "@swc/core": "^1.15.24",
+    "@testing-library/react": "^16.3.2",
+    "ava": "^7.0.0",
+    "execa": "^9.6.1",
+    "jsdom": "^29.0.2",
+    "nyc": "^18.0.0",
+    "oxfmt": "^0.44.0",
+    "oxlint": "^1.59.0",
+    "pirates": "^4.0.7"
   },
   "ava": {
     "files": [
