@@ -9,5 +9,5 @@ pirates.addHook(
     const result = transformSync(code, swcrc)
     return result.code
   },
-  { exts: ['.js'], ignoreNodeModules: false },
+  { exts: ['.js'] },
 )

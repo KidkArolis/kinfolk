@@ -2,6 +2,7 @@
   "name": "kinfolk",
   "version": "0.7.4",
   "description": "Atoms and selectors for React",
+  "type": "commonjs",
   "main": "dist/cjs/kinfolk.cjs",
   "module": "dist/esm/kinfolk.mjs",
   "sideEffects": false,
