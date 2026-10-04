@@ -7,7 +7,7 @@ import {
   useSelector,
   useSetter,
   useReducer,
-} from '../../src/kinfolk.js'
+} from '../../src/kinfolk.jsx'
 import './styles.css'
 
 // atoms

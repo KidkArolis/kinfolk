@@ -4,15 +4,17 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "jetpack"
+    "start": "jetpack",
+    "build": "jetpack build"
   },
   "author": "Karolis Narkevicius <hey@k8.lt>",
   "license": "ISC",
   "dependencies": {
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
   },
   "devDependencies": {
-    "jetpack": "^4.2.0"
-  }
+    "jetpack": "^5.0.0"
+  },
+  "private": true
 }

@@ -1,5 +1,4 @@
-import test from 'ava'
-import { JSDOM } from 'jsdom'
+import { test, afterEach, expect } from 'vitest'
 import { render, fireEvent, cleanup, act } from '@testing-library/react'
 import React, { useState, useEffect, useRef } from 'react'
 import {
@@ -13,17 +12,11 @@ import {
   useSelector,
 } from '../src/kinfolk'
 
-const dom = new JSDOM('<!doctype html><div id="root"></div>')
-global.window = dom.window
-global.document = dom.window.document
-
-globalThis.IS_REACT_ACT_ENVIRONMENT = true
-
-test.afterEach(() => {
+afterEach(() => {
   cleanup()
 })
 
-test('basic atom and selector', async (t) => {
+test('basic atom and selector', () => {
   const counter = atom(0, { label: 'counter' })
   const double = selector(() => counter() * 2, { label: 'double' })
 
@@ -47,17 +40,17 @@ test('basic atom and selector', async (t) => {
     </Provider>,
   )
 
-  t.is(container.querySelector('.content-1').innerHTML, '0')
-  t.is(container.querySelector('.content-2').innerHTML, '0')
+  expect(container.querySelector('.content-1').innerHTML).toBe('0')
+  expect(container.querySelector('.content-2').innerHTML).toBe('0')
   fireEvent.click(container.querySelector('button'))
-  t.is(container.querySelector('.content-1').innerHTML, '1')
-  t.is(container.querySelector('.content-2').innerHTML, '2')
+  expect(container.querySelector('.content-1').innerHTML).toBe('1')
+  expect(container.querySelector('.content-2').innerHTML).toBe('2')
   fireEvent.click(container.querySelector('button'))
-  t.is(container.querySelector('.content-1').innerHTML, '2')
-  t.is(container.querySelector('.content-2').innerHTML, '4')
+  expect(container.querySelector('.content-1').innerHTML).toBe('2')
+  expect(container.querySelector('.content-2').innerHTML).toBe('4')
 })
 
-test('useReducer', async (t) => {
+test('useReducer', () => {
   const counter = atom(0, { label: 'counter' })
   const double = selector(() => counter() * 2, { label: 'double' })
 
@@ -92,20 +85,20 @@ test('useReducer', async (t) => {
     </Provider>,
   )
 
-  t.is(container.querySelector('.content-1').innerHTML, '0')
-  t.is(container.querySelector('.content-2').innerHTML, '0')
+  expect(container.querySelector('.content-1').innerHTML).toBe('0')
+  expect(container.querySelector('.content-2').innerHTML).toBe('0')
   fireEvent.click(container.querySelector('.inc'))
-  t.is(container.querySelector('.content-1').innerHTML, '1')
-  t.is(container.querySelector('.content-2').innerHTML, '2')
+  expect(container.querySelector('.content-1').innerHTML).toBe('1')
+  expect(container.querySelector('.content-2').innerHTML).toBe('2')
   fireEvent.click(container.querySelector('.inc'))
-  t.is(container.querySelector('.content-1').innerHTML, '2')
-  t.is(container.querySelector('.content-2').innerHTML, '4')
+  expect(container.querySelector('.content-1').innerHTML).toBe('2')
+  expect(container.querySelector('.content-2').innerHTML).toBe('4')
   fireEvent.click(container.querySelector('.dec'))
-  t.is(container.querySelector('.content-1').innerHTML, '1')
-  t.is(container.querySelector('.content-2').innerHTML, '2')
+  expect(container.querySelector('.content-1').innerHTML).toBe('1')
+  expect(container.querySelector('.content-2').innerHTML).toBe('2')
 })
 
-test('selector without atom being directly used', async (t) => {
+test('selector without atom being directly used', () => {
   const counter = atom(21)
   const double = selector(() => counter() * 2)
 
@@ -125,10 +118,10 @@ test('selector without atom being directly used', async (t) => {
     </Provider>,
   )
 
-  t.is(container.querySelector('.content-1').innerHTML, '42')
+  expect(container.querySelector('.content-1').innerHTML).toBe('42')
 })
 
-test('unmounting unused atoms', async (t) => {
+test('unmounting unused atoms', () => {
   const store = createStore()
   const counter1 = atom(1, { label: 'counter-1' })
   const counter2 = atom(2, { label: 'counter-2' })
@@ -178,13 +171,13 @@ test('unmounting unused atoms', async (t) => {
 
   // at first all 4 components are mounted
   // and so are both atoms and both selectors
-  t.is(container.querySelector('.step').innerHTML, '0')
-  t.is(container.querySelector('.content-1').innerHTML, '1')
-  t.is(container.querySelector('.content-2').innerHTML, '2')
-  t.is(container.querySelector('.content-3').innerHTML, '2')
-  t.is(container.querySelector('.content-4').innerHTML, '3')
-  t.is(container.querySelector('.content-5'), null)
-  t.deepEqual(mounted(store), [
+  expect(container.querySelector('.step').innerHTML).toBe('0')
+  expect(container.querySelector('.content-1').innerHTML).toBe('1')
+  expect(container.querySelector('.content-2').innerHTML).toBe('2')
+  expect(container.querySelector('.content-3').innerHTML).toBe('2')
+  expect(container.querySelector('.content-4').innerHTML).toBe('3')
+  expect(container.querySelector('.content-5')).toBe(null)
+  expect(mounted(store)).toEqual([
     'component-1',
     'counter-1',
     'component-2',
@@ -198,13 +191,13 @@ test('unmounting unused atoms', async (t) => {
   // here we unmounted the useSelector of component-1
   // but the 2 atoms and selectors are still mounted
   fireEvent.click(container.querySelector('button'))
-  t.is(container.querySelector('.step').innerHTML, '1')
-  t.is(container.querySelector('.content-1'), null)
-  t.is(container.querySelector('.content-2').innerHTML, '2')
-  t.is(container.querySelector('.content-3').innerHTML, '2')
-  t.is(container.querySelector('.content-4').innerHTML, '3')
-  t.is(container.querySelector('.content-5'), null)
-  t.deepEqual(mounted(store), [
+  expect(container.querySelector('.step').innerHTML).toBe('1')
+  expect(container.querySelector('.content-1')).toBe(null)
+  expect(container.querySelector('.content-2').innerHTML).toBe('2')
+  expect(container.querySelector('.content-3').innerHTML).toBe('2')
+  expect(container.querySelector('.content-4').innerHTML).toBe('3')
+  expect(container.querySelector('.content-5')).toBe(null)
+  expect(mounted(store)).toEqual([
     'counter-1',
     'component-2',
     'counter-2',
@@ -219,13 +212,13 @@ test('unmounting unused atoms', async (t) => {
   // because we never unmount atoms, they're permanent state
   // and we're still using both selectors for now
   fireEvent.click(container.querySelector('button'))
-  t.is(container.querySelector('.step').innerHTML, '2')
-  t.is(container.querySelector('.content-1'), null)
-  t.is(container.querySelector('.content-2'), null)
-  t.is(container.querySelector('.content-3').innerHTML, '2')
-  t.is(container.querySelector('.content-4').innerHTML, '3')
-  t.is(container.querySelector('.content-5'), null)
-  t.deepEqual(mounted(store), [
+  expect(container.querySelector('.step').innerHTML).toBe('2')
+  expect(container.querySelector('.content-1')).toBe(null)
+  expect(container.querySelector('.content-2')).toBe(null)
+  expect(container.querySelector('.content-3').innerHTML).toBe('2')
+  expect(container.querySelector('.content-4').innerHTML).toBe('3')
+  expect(container.querySelector('.content-5')).toBe(null)
+  expect(mounted(store)).toEqual([
     'counter-1',
     'counter-2',
     'component-3',
@@ -237,13 +230,13 @@ test('unmounting unused atoms', async (t) => {
   // here we no longer use the double selector anywhere
   // so it gets unmounted
   fireEvent.click(container.querySelector('button'))
-  t.is(container.querySelector('.step').innerHTML, '3')
-  t.is(container.querySelector('.content-1'), null)
-  t.is(container.querySelector('.content-2'), null)
-  t.is(container.querySelector('.content-3'), null)
-  t.is(container.querySelector('.content-4').innerHTML, '3')
-  t.is(container.querySelector('.content-5'), null)
-  t.deepEqual(mounted(store), [
+  expect(container.querySelector('.step').innerHTML).toBe('3')
+  expect(container.querySelector('.content-1')).toBe(null)
+  expect(container.querySelector('.content-2')).toBe(null)
+  expect(container.querySelector('.content-3')).toBe(null)
+  expect(container.querySelector('.content-4').innerHTML).toBe('3')
+  expect(container.querySelector('.content-5')).toBe(null)
+  expect(mounted(store)).toEqual([
     'counter-1',
     'counter-2',
     'component-4',
@@ -252,13 +245,13 @@ test('unmounting unused atoms', async (t) => {
 
   // here we remount the double selector via 5th component
   fireEvent.click(container.querySelector('button'))
-  t.is(container.querySelector('.step').innerHTML, '4')
-  t.is(container.querySelector('.content-1'), null)
-  t.is(container.querySelector('.content-2'), null)
-  t.is(container.querySelector('.content-3'), null)
-  t.is(container.querySelector('.content-4'), null)
-  t.is(container.querySelector('.content-5').innerHTML, '4')
-  t.deepEqual(mounted(store), [
+  expect(container.querySelector('.step').innerHTML).toBe('4')
+  expect(container.querySelector('.content-1')).toBe(null)
+  expect(container.querySelector('.content-2')).toBe(null)
+  expect(container.querySelector('.content-3')).toBe(null)
+  expect(container.querySelector('.content-4')).toBe(null)
+  expect(container.querySelector('.content-5').innerHTML).toBe('4')
+  expect(mounted(store)).toEqual([
     'counter-1',
     'counter-2',
     'counter-1-triple',
@@ -269,16 +262,16 @@ test('unmounting unused atoms', async (t) => {
   // and finally nothing is used, so everything gets unmounted
   // but the 2 atoms and the triple selector are persistent
   fireEvent.click(container.querySelector('button'))
-  t.is(container.querySelector('.step').innerHTML, '5')
-  t.is(container.querySelector('.content-1'), null)
-  t.is(container.querySelector('.content-2'), null)
-  t.is(container.querySelector('.content-3'), null)
-  t.is(container.querySelector('.content-4'), null)
-  t.is(container.querySelector('.content-5'), null)
-  t.deepEqual(mounted(store), ['counter-1', 'counter-2', 'counter-1-triple'])
+  expect(container.querySelector('.step').innerHTML).toBe('5')
+  expect(container.querySelector('.content-1')).toBe(null)
+  expect(container.querySelector('.content-2')).toBe(null)
+  expect(container.querySelector('.content-3')).toBe(null)
+  expect(container.querySelector('.content-4')).toBe(null)
+  expect(container.querySelector('.content-5')).toBe(null)
+  expect(mounted(store)).toEqual(['counter-1', 'counter-2', 'counter-1-triple'])
 })
 
-test('inline selector', async (t) => {
+test('inline selector', () => {
   const store = createStore()
   const counter = atom(2, { label: 'counter' })
 
@@ -310,21 +303,15 @@ test('inline selector', async (t) => {
     </Provider>,
   )
 
-  t.is(container.querySelector('.content-1').innerHTML, '4')
-  t.deepEqual(
-    mounted(store).map((a) => a.replace(/\d+$/g, 'X')),
-    ['selectorX', 'counter'],
-  )
+  expect(container.querySelector('.content-1').innerHTML).toBe('4')
+  expect(mounted(store).map((a) => a.replace(/\d+$/g, 'X'))).toEqual(['selectorX', 'counter'])
 
   fireEvent.click(container.querySelector('button'))
-  t.is(container.querySelector('.content-1').innerHTML, '6')
-  t.deepEqual(
-    mounted(store).map((a) => a.replace(/\d+$/g, 'X')),
-    ['counter', 'selectorX'],
-  )
+  expect(container.querySelector('.content-1').innerHTML).toBe('6')
+  expect(mounted(store).map((a) => a.replace(/\d+$/g, 'X'))).toEqual(['counter', 'selectorX'])
 })
 
-test('useSelector for reading data cache allows optimal re-renders', async (t) => {
+test('useSelector for reading data cache allows optimal re-renders', () => {
   const cache = atom(
     {
       items: {
@@ -388,21 +375,21 @@ test('useSelector for reading data cache allows optimal re-renders', async (t) =
     </Provider>,
   )
 
-  t.is(container.querySelector('.item-1').innerHTML, 'foo: 1')
-  t.is(container.querySelector('.item-2').innerHTML, 'bar-0: 2')
+  expect(container.querySelector('.item-1').innerHTML).toBe('foo: 1')
+  expect(container.querySelector('.item-2').innerHTML).toBe('bar-0: 2')
 
   fireEvent.click(container.querySelector('button'))
 
-  t.is(container.querySelector('.item-1').innerHTML, 'foo: 1')
-  t.is(container.querySelector('.item-2').innerHTML, 'bar-1: 3')
+  expect(container.querySelector('.item-1').innerHTML).toBe('foo: 1')
+  expect(container.querySelector('.item-2').innerHTML).toBe('bar-1: 3')
 
   fireEvent.click(container.querySelector('button'))
 
-  t.is(container.querySelector('.item-1').innerHTML, 'foo: 1')
-  t.is(container.querySelector('.item-2').innerHTML, 'bar-2: 4')
+  expect(container.querySelector('.item-1').innerHTML).toBe('foo: 1')
+  expect(container.querySelector('.item-2').innerHTML).toBe('bar-2: 4')
 })
 
-test('useSelector only recomputes if dependencies change', async (t) => {
+test('useSelector only recomputes if dependencies change', () => {
   const counter = atom({ count: 0, unrelated: 0 }, { label: 'cache' })
   const count = selector(() => counter().count, { label: 'sel-count' })
 
@@ -460,34 +447,34 @@ test('useSelector only recomputes if dependencies change', async (t) => {
     </Provider>,
   )
 
-  t.is(container.querySelector('.item-1').innerHTML, '1,2,3: 1')
-  t.is(container.querySelector('.item-2').innerHTML, '0,0,0: 1')
+  expect(container.querySelector('.item-1').innerHTML).toBe('1,2,3: 1')
+  expect(container.querySelector('.item-2').innerHTML).toBe('0,0,0: 1')
 
   fireEvent.click(container.querySelector('.button-unrelated'))
-  t.is(container.querySelector('.item-1').innerHTML, '1,2,3: 1')
-  t.is(container.querySelector('.item-2').innerHTML, '0,0,0: 1')
+  expect(container.querySelector('.item-1').innerHTML).toBe('1,2,3: 1')
+  expect(container.querySelector('.item-2').innerHTML).toBe('0,0,0: 1')
 
   fireEvent.click(container.querySelector('.button-count'))
 
-  t.is(container.querySelector('.item-1').innerHTML, '1,2,3: 1')
-  t.is(container.querySelector('.item-2').innerHTML, '1,1,1: 2')
+  expect(container.querySelector('.item-1').innerHTML).toBe('1,2,3: 1')
+  expect(container.querySelector('.item-2').innerHTML).toBe('1,1,1: 2')
 
   fireEvent.click(container.querySelector('.button-count'))
   fireEvent.click(container.querySelector('.button-count'))
   fireEvent.click(container.querySelector('.button-unrelated'))
   fireEvent.click(container.querySelector('.button-unrelated'))
 
-  t.is(container.querySelector('.item-1').innerHTML, '1,2,3: 1')
-  t.is(container.querySelector('.item-2').innerHTML, '3,3,3: 4')
+  expect(container.querySelector('.item-1').innerHTML).toBe('1,2,3: 1')
+  expect(container.querySelector('.item-2').innerHTML).toBe('3,3,3: 4')
 
   fireEvent.click(container.querySelector('.button-unrelated'))
   fireEvent.click(container.querySelector('.button-unrelated'))
 
-  t.is(container.querySelector('.item-1').innerHTML, '1,2,3: 1')
-  t.is(container.querySelector('.item-2').innerHTML, '3,3,3: 4')
+  expect(container.querySelector('.item-1').innerHTML).toBe('1,2,3: 1')
+  expect(container.querySelector('.item-2').innerHTML).toBe('3,3,3: 4')
 })
 
-test('selector family', async (t) => {
+test('selector family', () => {
   const store = createStore()
   const counter = atom(21, { label: 'counter' })
   const times = selector((multi) => counter() * multi, { label: 'times' })
@@ -510,22 +497,22 @@ test('selector family', async (t) => {
     </Provider>,
   )
 
-  t.deepEqual(mounted(store), ['double', 'times', 'counter', 'triple'])
+  expect(mounted(store)).toEqual(['double', 'times', 'counter', 'triple'])
 
-  t.is(container.querySelector('.content-1').innerHTML, '42')
-  t.is(container.querySelector('.content-2').innerHTML, '63')
+  expect(container.querySelector('.content-1').innerHTML).toBe('42')
+  expect(container.querySelector('.content-2').innerHTML).toBe('63')
 
   const timesAtom = Array.from(store.atomStates.values()).find(
     (a) => a.label === 'times',
   )
-  t.deepEqual(Array.from(timesAtom.memo.keys()), [2, 3])
+  expect(Array.from(timesAtom.memo.keys())).toEqual([2, 3])
 
   unmount()
 
-  t.deepEqual(mounted(store), ['times', 'counter'])
+  expect(mounted(store)).toEqual(['times', 'counter'])
 })
 
-test('updating atoms via store', async (t) => {
+test('updating atoms via store', () => {
   const store = createStore()
   const counter = atom(0, { label: 'counter' })
   const double = selector(() => counter() * 2, { label: 'double' })
@@ -551,41 +538,41 @@ test('updating atoms via store', async (t) => {
     </Provider>,
   )
 
-  t.is(container.querySelector('.content-1').innerHTML, '0')
-  t.is(container.querySelector('.content-2').innerHTML, '0')
+  expect(container.querySelector('.content-1').innerHTML).toBe('0')
+  expect(container.querySelector('.content-2').innerHTML).toBe('0')
   fireEvent.click(container.querySelector('button'))
-  t.is(container.querySelector('.content-1').innerHTML, '1')
-  t.is(container.querySelector('.content-2').innerHTML, '2')
+  expect(container.querySelector('.content-1').innerHTML).toBe('1')
+  expect(container.querySelector('.content-2').innerHTML).toBe('2')
 
-  t.is(store.get(counter), 1)
-  t.is(store.get(double), 2)
-  t.is(store.get(nth, 1), 1)
-  t.is(store.get(nth, 5), 5)
+  expect(store.get(counter)).toBe(1)
+  expect(store.get(double)).toBe(2)
+  expect(store.get(nth, 1)).toBe(1)
+  expect(store.get(nth, 5)).toBe(5)
 
   act(() => {
     store.set(counter, 5)
   })
-  t.is(store.get(counter), 5)
-  t.is(store.get(double), 10)
-  t.is(store.get(nth, 1), 5)
-  t.is(store.get(nth, 5), 25)
+  expect(store.get(counter)).toBe(5)
+  expect(store.get(double)).toBe(10)
+  expect(store.get(nth, 1)).toBe(5)
+  expect(store.get(nth, 5)).toBe(25)
 
   act(() => {
     store.set(counter, (curr) => curr + 1)
   })
-  t.is(store.get(counter), 6)
-  t.is(store.get(double), 12)
-  t.is(store.get(nth, 1), 6)
-  t.is(store.get(nth, 5), 30)
+  expect(store.get(counter)).toBe(6)
+  expect(store.get(double)).toBe(12)
+  expect(store.get(nth, 1)).toBe(6)
+  expect(store.get(nth, 5)).toBe(30)
 
   const d = store.debug()
   const __selectors = Object.keys(d.__selectors)
   delete d.__selectors
-  t.deepEqual(d, { counter: 6 })
-  t.deepEqual(__selectors, ['val1', 'double', 'nth', 'val2'])
+  expect(d).toEqual({ counter: 6 })
+  expect(__selectors).toEqual(['val1', 'double', 'nth', 'val2'])
 })
 
-test('useSelector will memo values using a shallow comparator by default', async (t) => {
+test('useSelector will memo values using a shallow comparator by default', () => {
   const store = createStore()
   const counter = atom(0, { label: 'counter' })
 
@@ -630,35 +617,35 @@ test('useSelector will memo values using a shallow comparator by default', async
     </Provider>,
   )
 
-  t.is(store.get(counter), 0)
-  t.is(container.querySelector('.case1').innerHTML, 'a')
-  t.is(container.querySelector('.case2').innerHTML, '{"a":1,"b":2}')
-  t.is(container.querySelector('.case3').innerHTML, '[1,2,3]')
-  t.is(container.querySelector('.renderCount').innerHTML, '1')
+  expect(store.get(counter)).toBe(0)
+  expect(container.querySelector('.case1').innerHTML).toBe('a')
+  expect(container.querySelector('.case2').innerHTML).toBe('{"a":1,"b":2}')
+  expect(container.querySelector('.case3').innerHTML).toBe('[1,2,3]')
+  expect(container.querySelector('.renderCount').innerHTML).toBe('1')
 
   fireEvent.click(container.querySelector('button'))
-  t.is(store.get(counter), 1)
-  t.is(container.querySelector('.case1').innerHTML, 'a')
-  t.is(container.querySelector('.case2').innerHTML, '{"a":1,"b":2}')
-  t.is(container.querySelector('.case3').innerHTML, '[1,2,3]')
-  t.is(container.querySelector('.renderCount').innerHTML, '1')
+  expect(store.get(counter)).toBe(1)
+  expect(container.querySelector('.case1').innerHTML).toBe('a')
+  expect(container.querySelector('.case2').innerHTML).toBe('{"a":1,"b":2}')
+  expect(container.querySelector('.case3').innerHTML).toBe('[1,2,3]')
+  expect(container.querySelector('.renderCount').innerHTML).toBe('1')
 
   fireEvent.click(container.querySelector('button'))
-  t.is(store.get(counter), 2)
-  t.is(container.querySelector('.case1').innerHTML, 'a')
-  t.is(container.querySelector('.case2').innerHTML, '{"a":1,"b":2}')
-  t.is(container.querySelector('.case3').innerHTML, '[1,2,3]')
-  t.is(container.querySelector('.renderCount').innerHTML, '1')
+  expect(store.get(counter)).toBe(2)
+  expect(container.querySelector('.case1').innerHTML).toBe('a')
+  expect(container.querySelector('.case2').innerHTML).toBe('{"a":1,"b":2}')
+  expect(container.querySelector('.case3').innerHTML).toBe('[1,2,3]')
+  expect(container.querySelector('.renderCount').innerHTML).toBe('1')
 
   fireEvent.click(container.querySelector('button'))
-  t.is(store.get(counter), 3)
-  t.is(container.querySelector('.case1').innerHTML, 'b')
-  t.is(container.querySelector('.case2').innerHTML, '{"a":1}')
-  t.is(container.querySelector('.case3').innerHTML, '[1,2]')
-  t.is(container.querySelector('.renderCount').innerHTML, '2')
+  expect(store.get(counter)).toBe(3)
+  expect(container.querySelector('.case1').innerHTML).toBe('b')
+  expect(container.querySelector('.case2').innerHTML).toBe('{"a":1}')
+  expect(container.querySelector('.case3').innerHTML).toBe('[1,2]')
+  expect(container.querySelector('.renderCount').innerHTML).toBe('2')
 })
 
-test('selector mixing atoms from different contexts', async (t) => {
+test('selector mixing atoms from different contexts', () => {
   const store = createStore()
   const { Provider: Provider2, atom: atom2 } = createContext()
 
@@ -684,7 +671,7 @@ test('selector mixing atoms from different contexts', async (t) => {
     </Provider>,
   )
 
-  t.is(container.querySelector('.content-1').innerHTML, '30')
+  expect(container.querySelector('.content-1').innerHTML).toBe('30')
 })
 
 function mounted(store) {

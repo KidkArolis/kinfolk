@@ -1,469 +1,317 @@
-'use strict'
-Object.defineProperty(exports, '__esModule', {
-  value: true,
-})
-function _export(target, all) {
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
   for (var name in all)
-    Object.defineProperty(target, name, {
-      enumerable: true,
-      get: Object.getOwnPropertyDescriptor(all, name).get,
-    })
-}
-_export(exports, {
-  get Provider() {
-    return Provider
-  },
-  get atom() {
-    return atom
-  },
-  get createContext() {
-    return createContext
-  },
-  get createStore() {
-    return createStore
-  },
-  get selector() {
-    return selector
-  },
-  get useReducer() {
-    return useReducer
-  },
-  get useSelector() {
-    return useSelector
-  },
-  get useSetter() {
-    return useSetter
-  },
-})
-const _react = /*#__PURE__*/ _interop_require_wildcard(require('react'))
-function _getRequireWildcardCache(nodeInterop) {
-  if (typeof WeakMap !== 'function') return null
-  var cacheBabelInterop = new WeakMap()
-  var cacheNodeInterop = new WeakMap()
-  return (_getRequireWildcardCache = function (nodeInterop) {
-    return nodeInterop ? cacheNodeInterop : cacheBabelInterop
-  })(nodeInterop)
-}
-function _interop_require_wildcard(obj, nodeInterop) {
-  if (!nodeInterop && obj && obj.__esModule) {
-    return obj
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
   }
-  if (obj === null || (typeof obj !== 'object' && typeof obj !== 'function')) {
-    return {
-      default: obj,
-    }
-  }
-  var cache = _getRequireWildcardCache(nodeInterop)
-  if (cache && cache.has(obj)) {
-    return cache.get(obj)
-  }
-  var newObj = {
-    __proto__: null,
-  }
-  var hasPropertyDescriptor =
-    Object.defineProperty && Object.getOwnPropertyDescriptor
-  for (var key in obj) {
-    if (key !== 'default' && Object.prototype.hasOwnProperty.call(obj, key)) {
-      var desc = hasPropertyDescriptor
-        ? Object.getOwnPropertyDescriptor(obj, key)
-        : null
-      if (desc && (desc.get || desc.set)) {
-        Object.defineProperty(newObj, key, desc)
-      } else {
-        newObj[key] = obj[key]
-      }
-    }
-  }
-  newObj.default = obj
-  if (cache) {
-    cache.set(obj, newObj)
-  }
-  return newObj
-}
-/**
-  atomRef
-  -------
-  When you create an atom with atom(), you get a reference which we call atomRef
-  internally in the implementation. We'll use atomRef as the key to store atom's
-  metadata such as initial state in atomMetas (global) and atom's current state
-  and dependencies in atomStates (Provider).
-
-  atomMeta
-  --------
-  When we create an atom, we pass initial state and other config - we call
-  this atomMeta and store in a global meta map keyed by a unique atomRef for
-  each atom (and selector) created.
-
-  atomState
-  ---------
-  Atom state is lazily initialised upon interacting with the atom for the
-  first time with a hook. We store this state in a Map in React context.
-
-  In summary, we have:
-
-  - calling atom() returns an atomRef
-  - atomMetas is a map of atomRef -> atomMeta (global)
-  - atomStates is a map of atomRef -> atomState (per Provider)
-
- */ /**
- * A map of atomRef -> atomMeta storing all atomMetas ever created.
- */ const atomMetas = new WeakMap()
-/*
- * Indices for default atom and selector labeling
- */ let atomLabel = 0
-let selectorLabel = 0
-/**
- * Machinery to allow reading and subscribing to atoms
- * and selectors inside other selectors
- */ const defaultGet = () =>
-  assert(false, 'Atoms can only be read in selectors')
-const __getters = [defaultGet]
-const __get = (...args) => __getters[__getters.length - 1](...args)
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var stdin_exports = {};
+__export(stdin_exports, {
+  Provider: () => Provider,
+  atom: () => atom,
+  createContext: () => createContext,
+  createStore: () => createStore,
+  selector: () => selector,
+  useReducer: () => useReducer,
+  useSelector: () => useSelector,
+  useSetter: () => useSetter
+});
+module.exports = __toCommonJS(stdin_exports);
+var import_react = __toESM(require("react"));
+const atomMetas = /* @__PURE__ */ new WeakMap();
+let atomLabel = 0;
+let selectorLabel = 0;
+const defaultGet = () => assert(false, "Atoms can only be read in selectors");
+const __getters = [defaultGet];
+const __get = (...args) => __getters[__getters.length - 1](...args);
 function withGetter(get, fn) {
-  __getters.push(get)
+  __getters.push(get);
   try {
-    return fn()
+    return fn();
   } finally {
-    __getters.pop()
+    __getters.pop();
   }
 }
 function evaluateSelectorFn(atomStates, atomRef, arg) {
-  const atom = atomStates.get(atomRef)
-  // untrack the dependencies of this atom
-  for (const parentAtomRef of atom.parents) {
-    const parentAtom = atomStates.get(parentAtomRef)
-    parentAtom.children.delete(atomRef)
+  const atom2 = atomStates.get(atomRef);
+  for (const parentAtomRef of atom2.parents) {
+    const parentAtom = atomStates.get(parentAtomRef);
+    parentAtom.children.delete(atomRef);
   }
-  atom.parents.clear()
-  // create a getter able to track the dependencies
-  const inputs = []
-  const get = (parentAtomRef, arg) => {
-    // track the dependency tree
-    const parentAtom = getAtom(atomStates, parentAtomRef)
-    atom.parents.add(parentAtomRef)
-    parentAtom.children.add(atomRef)
-    // compute the value and keep track of inputs
-    const value = getSnapshot(atomStates, parentAtomRef, arg)
-    inputs.push({
-      atomRef: parentAtomRef,
-      arg,
-      value,
-    })
-    return value
-  }
-  const val = withGetter(get, () => atom.selectorFn(arg))
-  return [val, inputs]
+  atom2.parents.clear();
+  const inputs = [];
+  const get = (parentAtomRef, arg2) => {
+    const parentAtom = getAtom(atomStates, parentAtomRef);
+    atom2.parents.add(parentAtomRef);
+    parentAtom.children.add(atomRef);
+    const value = getSnapshot(atomStates, parentAtomRef, arg2);
+    inputs.push({ atomRef: parentAtomRef, arg: arg2, value });
+    return value;
+  };
+  const val = withGetter(get, () => atom2.selectorFn(arg));
+  return [val, inputs];
 }
 function createContext() {
-  const KinfolkContext = /*#__PURE__*/ (0, _react.createContext)()
-  const Provider = createProvider(KinfolkContext)
-  const useSetter = createUseSetter(KinfolkContext)
-  const useReducer = createUseReducer(KinfolkContext)
-  const useSelector = createUseSelector(KinfolkContext)
-  return {
-    atom,
-    selector,
-    Provider,
-    useSelector,
-    useSetter,
-    useReducer,
-  }
+  const KinfolkContext = (0, import_react.createContext)();
+  const Provider2 = createProvider(KinfolkContext);
+  const useSetter2 = createUseSetter(KinfolkContext);
+  const useReducer2 = createUseReducer(KinfolkContext);
+  const useSelector2 = createUseSelector(KinfolkContext);
+  return { atom, selector, Provider: Provider2, useSelector: useSelector2, useSetter: useSetter2, useReducer: useReducer2 };
 }
-const { Provider, useSelector, useSetter, useReducer } = createContext()
-/**
- * Provider stores the state of the atoms to be shared
- * within the wrapped subtree.
- */ function createProvider(KinfolkContext) {
-  return function Provider({ store, children }) {
-    const [{ atomStates }] = (0, _react.useState)(() => store || createStore())
-    return /*#__PURE__*/ _react.default.createElement(
-      KinfolkContext.Provider,
-      {
-        value: atomStates,
-      },
-      children,
-    )
-  }
+const { Provider, useSelector, useSetter, useReducer } = createContext();
+function createProvider(KinfolkContext) {
+  return function Provider2({ store, children }) {
+    const [{ atomStates }] = (0, import_react.useState)(() => store || createStore());
+    return /* @__PURE__ */ import_react.default.createElement(KinfolkContext.Provider, { value: atomStates }, children);
+  };
 }
 function atom(initialState, { label } = {}) {
-  const atomRef = () => __get(atomRef)
-  if (label) atomRef.label = label
-  const atomMeta = {
-    initialState,
-  }
-  atomMetas.set(atomRef, atomMeta)
-  return atomRef
+  const atomRef = () => __get(atomRef);
+  if (label) atomRef.label = label;
+  const atomMeta = { initialState };
+  atomMetas.set(atomRef, atomMeta);
+  return atomRef;
 }
 function selector(selectorFn, { label, equal, persist = true } = {}) {
-  const selectorRef = (arg) => __get(selectorRef, arg)
-  if (label) selectorRef.label = label
-  const selectorMeta = {
-    selectorFn,
-    equal,
-    persist,
-  }
-  atomMetas.set(selectorRef, selectorMeta)
-  return selectorRef
+  const selectorRef = (arg) => __get(selectorRef, arg);
+  if (label) selectorRef.label = label;
+  const selectorMeta = { selectorFn, equal, persist };
+  atomMetas.set(selectorRef, selectorMeta);
+  return selectorRef;
 }
 function getAtom(atomStates, atomRef) {
   if (!atomStates.has(atomRef)) {
-    const atomMeta = atomMetas.get(atomRef)
-    const atom = {
+    const atomMeta = atomMetas.get(atomRef);
+    const atom2 = {
       state: null,
-      listeners: new Set(),
-      parents: new Set(),
-      children: new Set(),
-      label: atomRef.label,
+      listeners: /* @__PURE__ */ new Set(),
+      parents: /* @__PURE__ */ new Set(),
+      children: /* @__PURE__ */ new Set(),
+      label: atomRef.label
+    };
+    if (has(atomMeta, "initialState")) {
+      atom2.state = atomMeta.initialState;
     }
-    if (has(atomMeta, 'initialState')) {
-      atom.state = atomMeta.initialState
-    }
-    if (has(atomMeta, 'selectorFn')) {
-      atom.selectorFn = atomMeta.selectorFn
-      atom.equal = atomMeta.equal || shallowEqual
-      atom.memo = new Map()
-      atom.label = atom.label || `selector${++selectorLabel}`
-      atom.persist = atomMeta.persist
+    if (has(atomMeta, "selectorFn")) {
+      atom2.selectorFn = atomMeta.selectorFn;
+      atom2.equal = atomMeta.equal || shallowEqual;
+      atom2.memo = /* @__PURE__ */ new Map();
+      atom2.label = atom2.label || `selector${++selectorLabel}`;
+      atom2.persist = atomMeta.persist;
     } else {
-      atom.label = atom.label || `atom${++atomLabel}`
+      atom2.label = atom2.label || `atom${++atomLabel}`;
     }
-    atomStates.set(atomRef, atom)
+    atomStates.set(atomRef, atom2);
   }
-  return atomStates.get(atomRef)
+  return atomStates.get(atomRef);
 }
-/**
- * Whenever we unsubscribe from a selector, we will
- * attempt to delete if it's no longer needed
- */ function dispose(atomStates, atomRef) {
-  const atom = atomStates.get(atomRef)
-  if (
-    isSelector(atom) &&
-    atom.listeners.size === 0 &&
-    atom.children.size === 0
-  ) {
-    if (!atom.persist) {
-      atomStates.delete(atomRef)
+function dispose(atomStates, atomRef) {
+  const atom2 = atomStates.get(atomRef);
+  if (isSelector(atom2) && atom2.listeners.size === 0 && atom2.children.size === 0) {
+    if (!atom2.persist) {
+      atomStates.delete(atomRef);
     }
-    for (const parentAtomRef of atom.parents) {
-      const parentAtom = atomStates.get(parentAtomRef)
-      parentAtom.children.delete(atomRef)
-      dispose(atomStates, parentAtomRef)
+    for (const parentAtomRef of atom2.parents) {
+      const parentAtom = atomStates.get(parentAtomRef);
+      parentAtom.children.delete(atomRef);
+      dispose(atomStates, parentAtomRef);
     }
   }
 }
 function getSnapshot(atomStates, atomRef, arg) {
-  const atom = getAtom(atomStates, atomRef)
-  if (!isSelector(atom)) {
-    return atom.state
+  const atom2 = getAtom(atomStates, atomRef);
+  if (!isSelector(atom2)) {
+    return atom2.state;
   }
   if (isDirty(atomStates, atomRef, arg)) {
-    let [value, inputs] = evaluateSelectorFn(atomStates, atomRef, arg)
-    if (atom.memo.has(arg) && atom.equal(atom.memo.get(arg).value, value)) {
-      value = atom.memo.get(arg).value
+    let [value, inputs] = evaluateSelectorFn(atomStates, atomRef, arg);
+    if (atom2.memo.has(arg) && atom2.equal(atom2.memo.get(arg).value, value)) {
+      value = atom2.memo.get(arg).value;
     }
-    atom.memo.set(arg, {
-      value,
-      inputs,
-    })
+    atom2.memo.set(arg, { value, inputs });
   }
-  return atom.memo.get(arg).value
+  return atom2.memo.get(arg).value;
 }
-/**
- * Given a selector, check if we need to recompute
- * it's value, which is the case if:
- * - nothing is memoised yet
- * - inputs changed since the last time
- */ function isDirty(atomStates, atomRef, arg) {
-  const atom = getAtom(atomStates, atomRef)
-  if (!atom.memo.has(arg)) {
-    return true
+function isDirty(atomStates, atomRef, arg) {
+  const atom2 = getAtom(atomStates, atomRef);
+  if (!atom2.memo.has(arg)) {
+    return true;
   }
-  const { inputs } = atom.memo.get(arg)
+  const { inputs } = atom2.memo.get(arg);
   for (const input of inputs) {
-    const inputValue = getSnapshot(atomStates, input.atomRef, input.arg)
+    const inputValue = getSnapshot(atomStates, input.atomRef, input.arg);
     if (inputValue !== input.value) {
-      return true
+      return true;
     }
   }
-  return false
+  return false;
 }
-/**
- * Notify listeners of atom's update
- */ function notify(atomStates, atomRef) {
-  const atom = atomStates.get(atomRef)
-  atom.listeners.forEach((l) => l())
-  atom.children.forEach((childRef) => notify(atomStates, childRef))
+function notify(atomStates, atomRef) {
+  const atom2 = atomStates.get(atomRef);
+  atom2.listeners.forEach((l) => l());
+  atom2.children.forEach((childRef) => notify(atomStates, childRef));
 }
-/**
- * Listen to atom changes
- */ function subscribe(atomStates, atomRef, fn) {
-  const atom = getAtom(atomStates, atomRef)
-  atom.listeners.add(fn)
+function subscribe(atomStates, atomRef, fn) {
+  const atom2 = getAtom(atomStates, atomRef);
+  atom2.listeners.add(fn);
   return function unsubscribe() {
-    atom.listeners.delete(fn)
-    dispose(atomStates, atomRef)
-  }
+    atom2.listeners.delete(fn);
+    dispose(atomStates, atomRef);
+  };
 }
-/**
- * Hook to subscribe to atom/selector value
- */ function createUseSelector(KinfolkContext) {
-  return function useSelector(selectorFnOrRef, deps, options = {}) {
-    const atomStates = (0, _react.useContext)(KinfolkContext)
-    // in case someone passed in an atomRef or selectorRef
-    // we wrap it into a selector function that reads the value
-    const selectorFn = isAtomOrSelectorRef(selectorFnOrRef)
-      ? (0, _react.useCallback)(() => selectorFnOrRef(), [selectorFnOrRef])
-      : (0, _react.useCallback)(selectorFnOrRef, deps)
-    // notice, we don't re-look at the options after memoising the selectorFn
-    // if the users really want to update equal or label, they should pass
-    // that into the dependencies
-    const atomRef = (0, _react.useMemo)(
-      () =>
-        selector(selectorFn, {
-          ...options,
-          persist: false,
-        }), // eslint-disable-next-line react-hooks/exhaustive-deps
-      [selectorFn],
-    )
-    const { subscribe_, getSnapshot_ } = (0, _react.useMemo)(
+function createUseSelector(KinfolkContext) {
+  return function useSelector2(selectorFnOrRef, deps, options = {}) {
+    const atomStates = (0, import_react.useContext)(KinfolkContext);
+    const selectorFn = isAtomOrSelectorRef(selectorFnOrRef) ? (
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      (0, import_react.useCallback)(() => selectorFnOrRef(), [selectorFnOrRef])
+    ) : (
+      // eslint-disable-next-line react-hooks/rules-of-hooks, react-hooks/exhaustive-deps
+      (0, import_react.useCallback)(selectorFnOrRef, deps)
+    );
+    const atomRef = (0, import_react.useMemo)(
+      () => selector(selectorFn, { ...options, persist: false }),
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [selectorFn]
+    );
+    const { subscribe_, getSnapshot_ } = (0, import_react.useMemo)(
       () => ({
         subscribe_: (cb) => subscribe(atomStates, atomRef, cb),
-        getSnapshot_: () => getSnapshot(atomStates, atomRef),
+        getSnapshot_: () => getSnapshot(atomStates, atomRef)
       }),
-      [atomStates, atomRef],
-    )
-    return (0, _react.useSyncExternalStore)(subscribe_, getSnapshot_)
+      [atomStates, atomRef]
+    );
+    return (0, import_react.useSyncExternalStore)(subscribe_, getSnapshot_);
+  };
+}
+function update(atomStates, atomRef, updater) {
+  const atom2 = getAtom(atomStates, atomRef);
+  assert(!isSelector(atom2), "Only atoms can be updated");
+  const curr = atom2.state;
+  atom2.state = updater(atom2.state);
+  if (curr !== atom2.state) {
+    notify(atomStates, atomRef);
   }
 }
-/**
- * Update the state of the atom
- * notifying all dependends in the process
- */ function update(atomStates, atomRef, updater) {
-  const atom = getAtom(atomStates, atomRef)
-  assert(!isSelector(atom), 'Only atoms can be updated')
-  const curr = atom.state
-  atom.state = updater(atom.state)
-  if (curr !== atom.state) {
-    notify(atomStates, atomRef)
-  }
-}
-/**
- * Hook for updating atom using a reducer
- */ function createUseReducer(KinfolkContext) {
-  return function useReducer(atomRef, reducer) {
-    const atomStates = (0, _react.useContext)(KinfolkContext)
-    return (0, _react.useCallback)(
+function createUseReducer(KinfolkContext) {
+  return function useReducer2(atomRef, reducer) {
+    const atomStates = (0, import_react.useContext)(KinfolkContext);
+    return (0, import_react.useCallback)(
       function dispatch(action) {
-        update(atomStates, atomRef, (state) => reducer(state, action))
+        update(atomStates, atomRef, (state) => reducer(state, action));
       },
-      [atomStates, atomRef, reducer],
-    )
-  }
+      [atomStates, atomRef, reducer]
+    );
+  };
 }
-/**
- * Hook for updating atom using a setter
- */ function createUseSetter(KinfolkContext) {
-  const useReducer = createUseReducer(KinfolkContext)
-  return function useSetter(atomRef) {
-    return useReducer(atomRef, setReducer)
-  }
+function createUseSetter(KinfolkContext) {
+  const useReducer2 = createUseReducer(KinfolkContext);
+  return function useSetter2(atomRef) {
+    return useReducer2(atomRef, setReducer);
+  };
 }
-/**
- * The reducer used inside useSetter
- * hoisted out of that hook for perf
- */ function setReducer(state, update) {
-  return typeof update === 'function' ? update(state) : update
+function setReducer(state, update2) {
+  return typeof update2 === "function" ? update2(state) : update2;
 }
 function createStore() {
   const store = {
     // for debugging, not a public API
     atomMetas,
     // for debugging, not a public API
-    atomStates: new Map(),
+    atomStates: /* @__PURE__ */ new Map(),
     // get a value of an atom
     get(atomRef, arg) {
-      const { atomStates } = store
-      return getSnapshot(atomStates, atomRef, arg)
+      const { atomStates } = store;
+      return getSnapshot(atomStates, atomRef, arg);
     },
     // update the value of an atom
     set(atomRef, value) {
-      const { atomStates } = store
-      update(atomStates, atomRef, (state) =>
-        typeof value === 'function' ? value(state) : value,
-      )
+      const { atomStates } = store;
+      update(
+        atomStates,
+        atomRef,
+        (state) => typeof value === "function" ? value(state) : value
+      );
     },
     // read out all of values in the entire app
     // keyed by the atom label (generated or provided)
     // and also include all of the current selector
     // state in the __selectors key
     debug() {
-      const { atomStates } = store
-      const result = {
-        __selectors: {},
-      }
+      const { atomStates } = store;
+      const result = { __selectors: {} };
       for (const atomState of atomStates.values()) {
-        const { label, selectorFn, state, memo } = atomState
-        const dest = selectorFn ? result.__selectors : result
-        const val = selectorFn ? memo : state
+        const { label, selectorFn, state, memo } = atomState;
+        const dest = selectorFn ? result.__selectors : result;
+        const val = selectorFn ? memo : state;
         if (dest[label]) {
           if (!Array.isArray(dest[label])) {
-            dest[label] = [dest[label]]
+            dest[label] = [dest[label]];
           }
-          dest[label].push(val)
+          dest[label].push(val);
         } else {
-          dest[label] = val
+          dest[label] = val;
         }
       }
-      return result
-    },
-  }
-  return store
+      return result;
+    }
+  };
+  return store;
 }
-/**
- * Slightly fancy shallow equality comparator that checks for
- *  - object equality
- *  - shallow object equality by matching all keys
- *  - shallow array equality by matching all items
- *
- * this will catch some cases where values computed in selectors
- * will get memoised more easily in cases they return shallowly
- * equal objects or arrays
- */ function shallowEqual(a, b) {
-  return Object.is(a, b) || objEqual(a, b) || arrEqual(a, b)
+function shallowEqual(a, b) {
+  return Object.is(a, b) || objEqual(a, b) || arrEqual(a, b);
 }
 function objEqual(a, b) {
-  if (a === b) return true
-  if (!a || !b) return false
-  if (!isObject(a) || !isObject(b)) return false
-  for (const k in a) if (a[k] !== b[k]) return false
-  for (const k in b) if (!(k in a)) return false
-  return true
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (!isObject(a) || !isObject(b)) return false;
+  for (const k in a) if (a[k] !== b[k]) return false;
+  for (const k in b) if (!(k in a)) return false;
+  return true;
 }
 function arrEqual(a, b) {
-  if (a === b) return true
-  if (!a || !b) return false
-  if (!Array.isArray(a) || !Array.isArray(b)) return false
-  if (a.length !== b.length) return false
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false
-  return true
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (!Array.isArray(a) || !Array.isArray(b)) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
 }
 function isObject(obj) {
-  return (
-    typeof obj === 'object' &&
-    Object.prototype.toString.call(obj) === '[object Object]'
-  )
+  return typeof obj === "object" && Object.prototype.toString.call(obj) === "[object Object]";
 }
 function assert(invariant, message) {
   if (!invariant) {
-    throw new Error(message)
+    throw new Error(message);
   }
 }
 function isAtomOrSelectorRef(atomRef) {
-  return atomMetas.has(atomRef)
+  return atomMetas.has(atomRef);
 }
-function isSelector(atom) {
-  return has(atom, 'selectorFn')
+function isSelector(atom2) {
+  return has(atom2, "selectorFn");
 }
 function has(obj, key) {
-  return Object.prototype.hasOwnProperty.call(obj, key)
+  return Object.prototype.hasOwnProperty.call(obj, key);
 }
