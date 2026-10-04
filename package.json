@@ -2,23 +2,27 @@
   "name": "kinfolk",
   "version": "0.7.4",
   "description": "Atoms and selectors for React",
+  "license": "ISC",
+  "author": "Karolis Narkevicius <hey@k8.lt>",
   "type": "commonjs",
+  "sideEffects": false,
   "main": "dist/cjs/kinfolk.cjs",
   "module": "dist/esm/kinfolk.mjs",
-  "sideEffects": false,
-  "engines": {
-    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "require": "./dist/cjs/kinfolk.cjs",
+      "import": "./dist/esm/kinfolk.mjs"
+    }
   },
   "scripts": {
     "test": "npm run lint && vitest run",
-    "lint": "oxlint && oxfmt --check '**/*.js'",
-    "format": "oxfmt --write '**/*.js'",
+    "lint": "oxlint --deny-warnings && oxfmt --check .",
+    "format": "oxfmt --write .",
     "coverage": "vitest run --coverage",
     "build": "node ./build.js",
     "watch": "node ./build.js -w"
   },
-  "author": "Karolis Narkevicius <hey@k8.lt>",
-  "license": "ISC",
   "devDependencies": {
     "@testing-library/react": "^16.3.3",
     "@vitest/coverage-v8": "^5.0.3",
@@ -30,14 +34,10 @@
     "react-dom": "^19.3.0",
     "vitest": "^5.0.3"
   },
-  "exports": {
-    "./package.json": "./package.json",
-    ".": {
-      "require": "./dist/cjs/kinfolk.cjs",
-      "import": "./dist/esm/kinfolk.mjs"
-    }
-  },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0"
+  },
+  "engines": {
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
   }
 }

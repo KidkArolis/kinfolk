@@ -304,11 +304,17 @@ test('inline selector', () => {
   )
 
   expect(container.querySelector('.content-1').innerHTML).toBe('4')
-  expect(mounted(store).map((a) => a.replace(/\d+$/g, 'X'))).toEqual(['selectorX', 'counter'])
+  expect(mounted(store).map((a) => a.replace(/\d+$/g, 'X'))).toEqual([
+    'selectorX',
+    'counter',
+  ])
 
   fireEvent.click(container.querySelector('button'))
   expect(container.querySelector('.content-1').innerHTML).toBe('6')
-  expect(mounted(store).map((a) => a.replace(/\d+$/g, 'X'))).toEqual(['counter', 'selectorX'])
+  expect(mounted(store).map((a) => a.replace(/\d+$/g, 'X'))).toEqual([
+    'counter',
+    'selectorX',
+  ])
 })
 
 test('useSelector for reading data cache allows optimal re-renders', () => {

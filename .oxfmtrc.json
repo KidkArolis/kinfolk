@@ -2,5 +2,11 @@
   "semi": false,
   "singleQuote": true,
   "jsxSingleQuote": true,
-  "printWidth": 80
+  "printWidth": 80,
+  "ignorePatterns": [
+    "dist/**",
+    "coverage/**",
+    "examples/*/dist/**",
+    "**/package-lock.json"
+  ]
 }
