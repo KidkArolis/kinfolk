@@ -1,45 +1,25 @@
 # Kinfolk
 
-Atoms and selectors for React.
+Atoms and selectors for React. Share state through a Provider and subscribe to individual values or derived values with `useSelector`.
 
-## Why?
+Kinfolk keeps the store in React context and notifies subscribers when atoms change. A component using `useSelector` re-renders when its selected value changes. Components using only `useSetter` or `useReducer` do not subscribe to state changes.
 
-Kinfolk is a more powerful context for React that allows:
+## Install
 
-- sharing state across wide parts of the application
-- granular subscriptions to slices of state and derived state
-- designed for use within libraries or applications
+```sh
+npm install kinfolk react
+```
 
-Kinfolk uses a series of simple techniques to ensure optimal re-renders. The granularity of atoms and selectors can be seen as an alternative to signals, because of how it allows to create granular fine tuned re-renders.
-
-The benefits of Kinfolk over React Context are:
-
-- Context is not recommended for storing many values, and subscribing to frequent changes
-- <Context.Provider /> component re-renders the entire tree underneath on each state change
-- Context does not allow granular or memoised subscriptions
-- Only one <KinfolkProvider> is required per application while allowing multiple isolated atoms
-
-## Optimal re-renders
-
-Kinfolk has several layers that makes it performant:
-
-- Selectors allow depending on a small slice of state and/or a computed value
-- Using `useSyncExternalStore` bails from re-rendering if selected state didn't change
-- Batched rerenders, that is setting state several times in the same tick will only re-render once
-- The entire affected subtree is re-rendered only once
-- Selectors are only re-computed if the input atoms or selectors were updated
-- Selector can return objects or arrays and if the value is shallowly equal it won't cause a re-render
-- useSetter is separate from useSelector to avoid re-rendering in components that only use useSetter
+React 18 and 19 are supported. The package requires Node.js 22.22.2+, 24.15.0+, or 26+, matching the supported development tooling. It exports both CommonJS and ESM entry points with TypeScript declarations. React is a peer dependency.
 
 ## Example
 
-```js
-import React from 'react'
+```tsx
 import { Provider, atom, selector, useSelector, useSetter } from 'kinfolk'
 
 const checkout = atom({
   order: [{ food: 'pizza' }, { food: 'burger' }],
-  card: null,
+  card: '',
 })
 const count = selector(() => checkout().order.length)
 
@@ -54,8 +34,8 @@ export function App() {
 }
 
 function Header() {
-  const c = useSelector(count)
-  return <div>Items in basket: {c}</div>
+  const items = useSelector(count)
+  return <div>Items in basket: {items}</div>
 }
 
 function OrderDetails() {
@@ -71,137 +51,178 @@ function OrderDetails() {
 
 function CardDetails() {
   const card = useSelector(() => checkout().card, [])
-  const setCheckoutState = useSetter(checkout)
+  const setCheckout = useSetter(checkout)
   return (
     <input
-      type='text'
       value={card}
-      onChange={(e) => {
-        setCheckoutState((c) => ({ ...c, card: e.target.value }))
+      onChange={(event) => {
+        setCheckout((current) => ({ ...current, card: event.target.value }))
       }}
     />
   )
 }
 ```
 
+Calling an atom or selector reference directly reads its value only during a selector calculation. In a component, read it through `useSelector`. Outside React, use `store.get`.
+
 ## API
 
-### `Provider`
+### `atom(initialState, options?)`
 
-Accepts an optional `store` prop. See the Advanced API below.
+Creates a callable reference to a state value. `options.label` names the atom in `store.debug()`. Each store initializes the atom lazily and retains its value for that store's lifetime, including when components unmount.
 
-```js
-<Provider />
-<Provider store={createStore()} />
-```
-
-### `atom(initialState, { label })`
-
-Create an atom. The `label` option is only used when viewing the contents of the store using `store.debug()`. Atom values are persisted throughout the lifetime of the application, use a setter if you want to clear the value of an atom.
-
-```js
+```ts
 const counter = atom(0)
-const users = atom([], { label: 'users' })
+const users = atom<{ id: string; name: string }[]>([], { label: 'users' })
 ```
 
-### `selector(selectorFn, { label, equal, persist = true })`
+TypeScript infers the value type from the initial value. Supply a type argument for empty arrays or values that will later take another form, such as `atom<string | null>(null)`.
 
-Create a selector that derives state from other atoms and selectors. Selectors cache their values to avoid recomputing the values upon each re-render. If the upstream dependencies did not change, the selector will return the memoised calculation. If all components that previously dependended on a selector were unmounted, the selector will persist it's memoisation cache. Set `persist` option to `false` to clear out the memoisation cache as soon as a selector is no longer used.
+### `selector(selectorFn, options?)`
 
-```js
+Creates a synchronous derived value. Kinfolk records atoms and selectors read during the calculation, then recomputes when one of those inputs changes. Selectors can read other selectors. Avoid side effects or state updates inside a selector.
+
+Options:
+
+- `label` names the selector in `store.debug()`.
+- `equal(previous, next)` determines whether to reuse the previous result. The default comparator compares primitive values and shallowly compares objects and arrays. It does not deeply compare nested values, Dates, or Maps.
+- `persist` defaults to `true`. Set it to `false` to discard the selector state when its last listener and dependent selector are removed.
+
+```ts
 const double = selector(() => counter() * 2)
-const enhancedUsers = selector(() => users().map(withFullName), {
-  label: 'enhancedUsers',
+const names = selector(() => users().map((user) => user.name), {
+  label: 'names',
   persist: false,
 })
 ```
 
-Selectors can also take arguments and compute multiple memoised values (aka selector families).
+A selector can take one argument, with a separate cache entry for each argument. Argument keys use Map identity: two different objects create different entries. Persisted selector caches have no size limit or eviction policy.
 
-```js
-const multiple = selector((n) => counter() * n)
-const calc = useSelector(() => multiple(1) + multiple(2) + multiple(3))
+```tsx
+const multiple = selector((factor: number) => counter() * factor)
+
+function Total() {
+  const total = useSelector(() => multiple(2) + multiple(3), [])
+  return <div>{total}</div>
+}
 ```
 
-### `useSelector(selectorFn, dependencies, { label, equal })`
+### `Provider`
 
-Read an atom or selector inside a React component and subscribe to the value. Only if the value computed by the `selectorFn` has changed will the component re-render. Note: when comparing the value the default `equal` function is used but can by customised. The default `equal` function will not only compare strict object equality, but will also compare objects shallowly (every key/value in both objects equals) and compare arrays shallowly (every item in the array in both objects equals).
+Wrap components using Kinfolk hooks in their context's Provider. It creates a store unless you supply one. The Provider captures the store on its first render; changing the `store` prop does not replace it. Remount the Provider to switch stores.
 
-```js
-const count = useSelector(counter, [])
-const doubleCount = useSelector(double, [])
-const tripleCount = useSelector(() => counter() * 3, [], {
-  label: 'tripleCount',
-})
+```tsx
+<Provider>
+  <App />
+</Provider>
+
+<Provider store={store}>
+  <App />
+</Provider>
 ```
+
+Hooks throw an error outside their matching Provider. Separate Providers have separate state unless they receive the same store.
+
+### `useSelector(selectorFnOrRef, dependencies?, options?)`
+
+Reads and subscribes to an atom, an argumentless selector, or a callback that reads references. Selector families must be wrapped in a callback that supplies the argument.
+
+```tsx
+const count = useSelector(counter)
+const doubled = useSelector(double)
+const multiplied = useSelector(() => multiple(factor), [factor])
+```
+
+For callback selectors, list captured component values in `dependencies`, as with `useCallback`. An empty list retains the callback across renders. Omitting the list refreshes it on each render. When passing a reference directly, Kinfolk tracks that reference's identity and ignores the dependency list.
+
+The `label` and `equal` options follow `selector`. They are captured when the callback is memoized. To change them, change the callback dependencies; for a direct reference, change the reference. The internal hook selector is always nonpersistent and is removed on unsubscribe.
+
+Kinfolk uses `useSyncExternalStore`. Returning the same selected result avoids a state-driven re-render. React still controls renders caused by parents, props, and other hooks, and controls batching.
 
 ### `useSetter(atomRef)`
 
-Update an atom with a setter that takes a value or an update function.
+Returns a setter accepting a value or an updater function. Use immutable updates for objects and arrays. Returning the same value does not notify subscribers.
 
-```js
-const set = useSetter(counter)
-set(1)
-set((c) => c + 1)
+```tsx
+const setCount = useSetter(counter)
+setCount(1)
+setCount((current) => current + 1)
 ```
+
+Function-valued atoms follow React's updater convention. Wrap the new function in an updater to store it, for example `setHandler(() => nextHandler)`.
 
 ### `useReducer(atomRef, reducer)`
 
-Update an atom with a reducer.
+Returns a dispatch function that applies `reducer(state, action)` to the atom. TypeScript infers the atom value type and the reducer's action type. Selectors cannot be updated through setters or reducers.
 
-```js
-const calculator = (state, action) => {
-  if (action === 'inc') return state + 1
-  if (action === 'dec') return state + 1
-  return state
-}
-const dispatch = useReducer(counter, calculator)
+```tsx
+const dispatch = useReducer(counter, (state, action: 'inc' | 'dec') => {
+  return action === 'inc' ? state + 1 : state - 1
+})
 dispatch('inc')
 dispatch('dec')
 ```
 
-## Advanced API
+## Stores and isolated contexts
 
 ### `createStore()`
 
-By default a store is automatically created in the Provider. Creating a store and passing it in explicitly allows to:
+Creates a store for use outside React or for sharing between Providers. `get` and `set` use the same references as the hooks. Store updates notify mounted subscribers.
 
-- read and modify it outside of React's render tree with `get(atomRef)` and `set(atomRef, update)`
-- allows viewing the contents of the store using `debug()` method
-- allows sharing it between application and libraries and even cross-depend on those atoms
-
-```js
+```ts
 const store = createStore()
-<Provider store={store} />
-const val = store.get(counter)
-store.set(counter, val + 1)
-store.set(counter, c => c + 1)
-store.debug() // returns an object with all values of all atoms and selectors
+store.get(counter)
+store.get(multiple, 5)
+store.set(counter, 10)
+store.set(counter, (current) => current + 1)
 ```
+
+`store.debug()` returns the values of initialized atoms keyed by label. Its `__selectors` property contains selector memoization Maps keyed by selector label. Each Map entry has a `value` and tracked `inputs`. Duplicate labels produce an array of values or Maps. Generated labels are for debugging and can change. Reserve `__selectors` for the debug output.
+
+The exposed `atomStates`, `atomMetas`, and memoization details are debugging internals, not a stable API. A TypeScript `Store` type is exported, along with `Atom`, `Selector`, `Update`, `AtomOptions`, `SelectorOptions`, `UseSelectorOptions`, and `ProviderProps`.
 
 ### `createContext()`
 
-Create an isolated context with it's own Provider, for use within libraries. Note that it is still possible to share the store if the same store instance is provided to application and library Providers.
+Creates a separate Provider and hooks, useful for libraries. References are shared at module scope, while each Provider owns its store. Contexts can share values and cross-read references when their Providers receive the same store.
 
-```js
-const { atom, selector, Provider, useSelector, useSetter, useReducer } =
-  createContext()
+```ts
+const library = createContext()
+// library.atom, library.selector, library.Provider,
+// library.useSelector, library.useSetter, library.useReducer
 ```
 
-## Alternatives
+## Limits
 
-- redux - global stores are not ideal for large apps, React is modular and so is Kinfolk
-- tiny-atom - same flaws as redux, current implementation not fully compatible with React 18
-- zustand - neat and simple and also offers subscribing to slices of state
-- recoil - inspiration for Kinfolk, large API surface area, bigger codebase than React
-- jotai - feature rich, supports async atoms and selectors
+- Selectors must run synchronously. Reads after an `await` are outside Kinfolk's dependency tracking. Async loading and Suspense integration are not provided.
+- `useSelector` does not provide a server snapshot to `useSyncExternalStore`, so server rendering components that call it is not supported.
+- Use one copy of Kinfolk in an application. References from a different copy of the module are not recognized.
+- Selector dependency cycles are not supported.
+- Changing mutable objects in place bypasses change detection. Replace changed objects and arrays.
 
-## Caution
+## Development
 
-While the ideas for this library are old and sourced from a lot of inspiration in the React ecosystem, given the library is new at this point and given the certain amount of complexity in semantics of React's concurrent rendering and the `useSyncExternalStore` hook below are some things to be aware of.
+Use a supported Node.js version and npm.
 
-- Like with React itself, only one copy of Kinfolk should ideally be present in a project because of how atom and selector references are kept in the Kinfolk module's scope.
+```sh
+npm ci
+npm test
+npm run coverage
+npm run build
+npm run watch
+npm run format
+npm audit
+```
 
-- Kinfolk is tracking selector dependencies during the `getSnapshot()` call of the `useSyncExternalStore`. In principle this shold be no different than what something like Recoil is doing, the behaviour is at this time a little experimental and could present some edge cases where this might not work as expected, especially in concurrent rendering.
+`npm test` checks Oxlint/Oxfmt, builds the library and declarations, checks the source and API type fixtures, and runs the runtime tests. `npm run coverage` enforces 100% statements, branches, functions, and lines for all library source files and writes an HTML report to `coverage/index.html`. `npm run build` writes JavaScript and declarations to `dist/cjs` and `dist/esm`. Watch mode rebuilds when source files change.
 
-- Due to the usage of the `useSyncExternalStore` hook, React will de-opt from concurrent rendering and will restart the rendering and re-render the whole app synchronously every time an atom is updated, at least according [to this discussion of useSyncExternalStore](https://github.com/reactwg/react-18/discussions/86).
+CI runs these checks on Node 22, 24, and 26 with React 18 and 19. It also audits and builds both examples and checks package contents.
+
+Each example installs its own dependencies and uses the local library source:
+
+```sh
+cd examples/example-1 # or examples/example-2
+npm ci
+npm start           # http://localhost:3030
+npm run build
+npm audit
+```
