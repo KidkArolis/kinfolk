@@ -4,27 +4,40 @@
   "description": "Atoms and selectors for React",
   "license": "ISC",
   "author": "Karolis Narkevicius <hey@k8.lt>",
+  "files": [
+    "dist"
+  ],
   "type": "commonjs",
   "sideEffects": false,
   "main": "dist/cjs/kinfolk.cjs",
   "module": "dist/esm/kinfolk.mjs",
+  "types": "dist/cjs/kinfolk.d.cts",
   "exports": {
     "./package.json": "./package.json",
     ".": {
-      "require": "./dist/cjs/kinfolk.cjs",
-      "import": "./dist/esm/kinfolk.mjs"
+      "import": {
+        "types": "./dist/esm/kinfolk.d.mts",
+        "default": "./dist/esm/kinfolk.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/kinfolk.d.cts",
+        "default": "./dist/cjs/kinfolk.cjs"
+      }
     }
   },
   "scripts": {
-    "test": "npm run lint && vitest run",
+    "test": "npm run lint && npm run build && npm run typecheck && vitest run",
     "lint": "oxlint --deny-warnings && oxfmt --check .",
     "format": "oxfmt --write .",
     "coverage": "vitest run --coverage",
     "build": "node ./build.js",
-    "watch": "node ./build.js -w"
+    "watch": "node ./build.js -w",
+    "typecheck": "tsc --noEmit && tsc -p test/types/tsconfig.json"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@vitest/coverage-v8": "^5.0.3",
     "esbuild": "^0.28.2",
     "jsdom": "^30.1.3",
@@ -32,6 +45,7 @@
     "oxlint": "^1.89.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "typescript": "^7.0.2",
     "vitest": "^5.0.3"
   },
   "peerDependencies": {
