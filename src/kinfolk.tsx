@@ -214,11 +214,32 @@ function getSnapshot(
   const atom = getAtom(atomStates, atomRef)
   if (atom.kind === 'atom') return atom.state
   const memo = atom.memo.get(arg)
-  if (memo && !isDirty(atomStates, memo.inputs)) return memo.value
+  if (memo && !isDirty(atomStates, memo.inputs)) {
+    connectParents(atomStates, atomRef, atom)
+    return memo.value
+  }
   const next = evaluateSelectorFn(atomStates, atomRef, atom, arg)
   if (memo && atom.equal(memo.value, next.value)) next.value = memo.value
   atom.memo.set(arg, next)
+  connectParents(atomStates, atomRef, atom)
   return next.value
+}
+
+// Keep edges for every family argument, including when a persisted cache is reused.
+function connectParents(
+  atomStates: AtomStates,
+  atomRef: Ref,
+  atom: SelectorState,
+) {
+  for (const parentRef of atom.parents)
+    getAtom(atomStates, parentRef).children.delete(atomRef)
+  atom.parents.clear()
+  for (const { inputs } of atom.memo.values()) {
+    for (const { atomRef: parentRef } of inputs) {
+      atom.parents.add(parentRef)
+      getAtom(atomStates, parentRef).children.add(atomRef)
+    }
+  }
 }
 
 function isDirty(atomStates: AtomStates, inputs: Input[]) {
@@ -231,7 +252,9 @@ function isDirty(atomStates: AtomStates, inputs: Input[]) {
 function notify(atomStates: AtomStates, atomRef: Ref) {
   const atom = getAtom(atomStates, atomRef)
   atom.listeners.forEach((listener) => listener())
-  atom.children.forEach((childRef) => notify(atomStates, childRef))
+  // Snapshot the edges because listener reads may reconnect children during notification.
+  // oxlint-disable-next-line unicorn/no-useless-spread
+  for (const childRef of [...atom.children]) notify(atomStates, childRef)
 }
 
 function subscribe(atomStates: AtomStates, atomRef: Ref, fn: () => void) {
@@ -337,16 +360,25 @@ export function createStore(): Store {
       const result: Record<string, unknown> & {
         __selectors: Record<string, unknown>
       } = { __selectors: {} }
+      const groups = new Map<object, Map<string, unknown[]>>()
       for (const atomState of atomStates.values()) {
         const { label } = atomState
         const dest = atomState.kind === 'selector' ? result.__selectors : result
         const val =
           atomState.kind === 'selector' ? atomState.memo : atomState.state
-        const previous = dest[label]
-        if (previous) {
-          if (Array.isArray(previous)) previous.push(val)
-          else dest[label] = [previous, val]
-        } else dest[label] = val
+        let labels = groups.get(dest)
+        if (!labels) {
+          labels = new Map()
+          groups.set(dest, labels)
+        }
+        const group = labels.get(label)
+        if (group) {
+          group.push(val)
+          dest[label] = group
+        } else {
+          labels.set(label, [val])
+          dest[label] = val
+        }
       }
       return result
     },
@@ -367,7 +399,6 @@ function objEqual(a: unknown, b: unknown) {
 }
 
 function arrEqual(a: unknown, b: unknown) {
-  if (a === b) return true
   if (!a || !b) return false
   if (!Array.isArray(a) || !Array.isArray(b)) return false
   if (a.length !== b.length) return false
