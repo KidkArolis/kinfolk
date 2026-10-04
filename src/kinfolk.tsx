@@ -105,9 +105,7 @@ function evaluateSelectorFn(
 
   const inputs: Input[] = []
   const get: Getter = (parentAtomRef, arg) => {
-    const parentAtom = getAtom(atomStates, parentAtomRef)
     atom.parents.add(parentAtomRef)
-    parentAtom.children.add(atomRef)
     const value = getSnapshot(atomStates, parentAtomRef, arg)
     inputs.push({ atomRef: parentAtomRef, arg, value })
     return value
@@ -225,19 +223,26 @@ function getSnapshot(
   return next.value
 }
 
-// Keep edges for every family argument, including when a persisted cache is reused.
+// Track every cached argument, but only attach notification edges for active selectors.
+// Discarded React renders must not keep dependencies alive.
 function connectParents(
   atomStates: AtomStates,
   atomRef: Ref,
   atom: SelectorState,
 ) {
+  const active = atom.listeners.size > 0 || atom.children.size > 0
   for (const parentRef of atom.parents)
     getAtom(atomStates, parentRef).children.delete(atomRef)
   atom.parents.clear()
   for (const { inputs } of atom.memo.values()) {
     for (const { atomRef: parentRef } of inputs) {
       atom.parents.add(parentRef)
-      getAtom(atomStates, parentRef).children.add(atomRef)
+      if (active) {
+        const parent = getAtom(atomStates, parentRef)
+        parent.children.add(atomRef)
+        if (parent.kind === 'selector')
+          connectParents(atomStates, parentRef, parent)
+      }
     }
   }
 }
@@ -260,6 +265,7 @@ function notify(atomStates: AtomStates, atomRef: Ref) {
 function subscribe(atomStates: AtomStates, atomRef: Ref, fn: () => void) {
   const atom = getAtom(atomStates, atomRef)
   atom.listeners.add(fn)
+  getSnapshot(atomStates, atomRef)
   return function unsubscribe() {
     atom.listeners.delete(fn)
     dispose(atomStates, atomRef)

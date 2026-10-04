@@ -62,9 +62,7 @@ function evaluateSelectorFn(atomStates, atomRef, atom2, arg) {
   atom2.parents.clear();
   const inputs = [];
   const get = (parentAtomRef, arg2) => {
-    const parentAtom = getAtom(atomStates, parentAtomRef);
     atom2.parents.add(parentAtomRef);
-    parentAtom.children.add(atomRef);
     const value2 = getSnapshot(atomStates, parentAtomRef, arg2);
     inputs.push({ atomRef: parentAtomRef, arg: arg2, value: value2 });
     return value2;
@@ -152,13 +150,19 @@ function getSnapshot(atomStates, atomRef, arg) {
   return next.value;
 }
 function connectParents(atomStates, atomRef, atom2) {
+  const active = atom2.listeners.size > 0 || atom2.children.size > 0;
   for (const parentRef of atom2.parents)
     getAtom(atomStates, parentRef).children.delete(atomRef);
   atom2.parents.clear();
   for (const { inputs } of atom2.memo.values()) {
     for (const { atomRef: parentRef } of inputs) {
       atom2.parents.add(parentRef);
-      getAtom(atomStates, parentRef).children.add(atomRef);
+      if (active) {
+        const parent = getAtom(atomStates, parentRef);
+        parent.children.add(atomRef);
+        if (parent.kind === "selector")
+          connectParents(atomStates, parentRef, parent);
+      }
     }
   }
 }
@@ -175,6 +179,7 @@ function notify(atomStates, atomRef) {
 function subscribe(atomStates, atomRef, fn) {
   const atom2 = getAtom(atomStates, atomRef);
   atom2.listeners.add(fn);
+  getSnapshot(atomStates, atomRef);
   return function unsubscribe() {
     atom2.listeners.delete(fn);
     dispose(atomStates, atomRef);
