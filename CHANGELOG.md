@@ -1,4 +1,4 @@
-# Unreleased
+# 0.8.0
 
 - Support server rendering and hydration, including delayed hydration after client state updates.
 - Allow passing options directly as the second argument to `useSelector`, while keeping dependency-array calls supported. Changes to equality functions and labels now take effect.
