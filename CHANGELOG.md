@@ -1,3 +1,7 @@
+# Unreleased
+
+- Fix TypeScript support for using actionless reducer dispatchers as event handlers.
+
 # 0.8.0
 
 - Support server rendering and hydration, including delayed hydration after client state updates.

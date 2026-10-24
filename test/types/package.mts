@@ -1,3 +1,4 @@
+import type { MouseEventHandler } from 'react'
 import {
   atom,
   selector,
@@ -19,6 +20,8 @@ store.set(times, 2)
 function Component() {
   const increment = useReducer(count, (state) => state + 1)
   increment()
+  const onClick: MouseEventHandler<HTMLButtonElement> = increment
+  void onClick
   // @ts-expect-error Actionless reducers reject unexpected actions.
   increment('wrong')
   const dispatch = useReducer(count, (state, amount: number) => state + amount)

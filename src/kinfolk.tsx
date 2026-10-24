@@ -395,13 +395,13 @@ function createUseReducer(KinfolkContext: KinfolkContext) {
         update(atomStates, atomRef, (state) => reducer(state as T, action))
       },
       [atomStates, atomRef, reducer],
-    )
+    ) as [A] extends [void] ? () => void : (action: A) => void
   }
 }
 
 function createUseSetter(KinfolkContext: KinfolkContext) {
   const useReducer = createUseReducer(KinfolkContext)
-  return function useSetter<T>(atomRef: Atom<T>) {
+  return function useSetter<T>(atomRef: Atom<T>): (value: Update<T>) => void {
     return useReducer(atomRef, setReducer<T>)
   }
 }
