@@ -22,10 +22,17 @@ export interface Atom<T> {
 }
 
 export interface Selector<T, A = void> {
-  (arg: A): T
+  (...args: SelectorArgs<A>): T
   label?: string
   readonly [selectorType]: true
 }
+
+type SelectorArgs<A> = undefined extends A ? [arg?: A] : [arg: A]
+type SelectorFn = (arg: never) => unknown
+type SelectorArgument<F extends SelectorFn> =
+  Parameters<F> extends [] ? void : Parameters<F>[0]
+type Readable = (() => unknown) &
+  ({ readonly [atomType]: true } | { readonly [selectorType]: true })
 
 export type Update<T> = T | ((state: T) => T)
 export interface AtomOptions {
@@ -78,7 +85,7 @@ export interface Store {
   /** Internal maps exposed for debugging, not a stable public API. */
   atomMetas: WeakMap<object, Meta>
   atomStates: AtomStates
-  get<T>(ref: Atom<T> | Selector<T>): T
+  get<R extends Readable>(ref: R): ReturnType<R>
   get<T, A>(ref: Selector<T, A>, arg: A): T
   set<T>(ref: Atom<T>, value: Update<T>): void
   debug(): Record<string, unknown> & { __selectors: Record<string, unknown> }
@@ -160,18 +167,20 @@ export function atom<T>(initialState: T, { label }: AtomOptions = {}): Atom<T> {
   return atomRef
 }
 
-export function selector<T, A = void>(
-  selectorFn: (arg: A) => T,
-  { label, equal, persist = true }: SelectorOptions<T> = {},
-): Selector<T, A> {
+export function selector<F extends SelectorFn>(
+  selectorFn: F,
+  { label, equal, persist = true }: SelectorOptions<ReturnType<F>> = {},
+): Selector<ReturnType<F>, SelectorArgument<F>> {
+  type T = ReturnType<F>
+  type A = SelectorArgument<F>
   const selectorRef: Selector<T, A> = Object.assign(
-    (arg: A) => currentGet(selectorRef, arg) as T,
+    (...[arg]: SelectorArgs<A>) => currentGet(selectorRef, arg) as T,
     { [selectorType]: true as const },
   )
   if (label) selectorRef.label = label
   atomMetas.set(selectorRef, {
     kind: 'selector',
-    selectorFn: (arg) => selectorFn(arg as A),
+    selectorFn: (arg) => selectorFn(arg as never),
     equal: equal ? (a, b) => equal(a as T, b as T) : shallowEqual,
     persist,
   })
@@ -305,7 +314,11 @@ function useAtomStates(context: KinfolkContext): AtomStates {
 }
 
 function createUseSelector(KinfolkContext: KinfolkContext) {
-  return function useSelector<T>(
+  function useSelector<F extends () => unknown>(
+    selectorFnOrRef: F,
+    options?: UseSelectorOptions<ReturnType<F>>,
+  ): ReturnType<F>
+  function useSelector<T>(
     selectorFnOrRef: () => T,
     { deps, label, equal }: UseSelectorOptions<T> = {},
   ): T {
@@ -330,6 +343,7 @@ function createUseSelector(KinfolkContext: KinfolkContext) {
     )
     return useSyncExternalStore(subscribe_, getSnapshot_)
   }
+  return useSelector
 }
 
 function update(

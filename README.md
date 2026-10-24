@@ -116,7 +116,7 @@ const names = selector(() => users().map((user) => user.name), {
 })
 ```
 
-A selector can take one argument, with a separate cache entry for each argument. Argument keys use Map identity: two different objects create different entries. Persisted selector caches have no size limit or eviction policy.
+A selector can take one argument, with a separate cache entry for each argument. TypeScript infers required, optional, and defaulted arguments from the callback. For example, `selector((factor = 2) => counter() * factor)` can be called with no argument or with a number. Argument keys use Map identity: two different objects create different entries. Persisted selector caches have no size limit or eviction policy.
 
 ```tsx
 const multiple = selector((factor: number) => counter() * factor)

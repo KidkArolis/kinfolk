@@ -25,3 +25,14 @@ void Component
 // @ts-expect-error Published writable atoms cannot widen to permit invalid writes.
 const mixed: Atom<number | string> = count
 void mixed
+
+const defaulted = selector((factor = 2) => count() * factor)
+const inferred: number = store.get(defaulted)
+const explicit: number = store.get(defaulted, 3)
+const choice = Math.random() > 0.5 ? atom(0) : atom('hello')
+const union: number | string = store.get(choice)
+// @ts-expect-error Published declarations preserve defaulted argument types.
+store.get(defaulted, 'wrong')
+void inferred
+void explicit
+void union
