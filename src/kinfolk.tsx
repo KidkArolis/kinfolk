@@ -323,7 +323,7 @@ function update(
 }
 
 function createUseReducer(KinfolkContext: KinfolkContext) {
-  return function useReducer<T, A>(
+  return function useReducer<T, A = void>(
     atomRef: Atom<T>,
     reducer: (state: T, action: A) => T,
   ) {
