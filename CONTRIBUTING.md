@@ -16,7 +16,7 @@ npm run format
 npm audit
 ```
 
-`npm test` checks Oxlint/Oxfmt, builds the library and declarations, checks the source and API type fixtures, and runs the runtime tests. `npm run check` adds coverage to the same test run, so runtime tests run once. `npm run coverage` enforces 100% statements, branches, functions, and lines for all library source files and writes an HTML report to `coverage/index.html`. `npm run build` writes JavaScript and declarations to `dist/cjs` and `dist/esm`. Generated `dist/` files are ignored by Git and rebuilt by `prepack` before packaging. Watch mode rebuilds when source files change. Compiler errors are reported without stopping the watcher; fix the error and save to rebuild.
+`npm test` checks Oxlint/Oxfmt, builds the library and declarations, checks the source and API type fixtures, and runs the runtime tests. `npm run check` adds coverage to the same test run, so runtime tests run once. `npm run coverage` enforces 100% statements, branches, functions, and lines for all library source files and writes an HTML report to `coverage/index.html`. `npm run build` writes JavaScript and declarations to `dist/cjs` and `dist/esm`. Generated `dist/` files are ignored by Git and rebuilt by `prepack` before packaging. Watch mode rebuilds when source files change. Compiler errors are reported without stopping the watcher; fix the error and save to rebuild. Failed type checks leave the last successful build in place.
 
 CI runs these checks on Node 22, 24, and 26 with React 18 and 19. It also runs the dependency audit, builds both examples, and checks package contents.
 
