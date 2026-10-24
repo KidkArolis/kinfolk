@@ -10,7 +10,7 @@ Kinfolk keeps the store in React context and notifies subscribers when atoms cha
 npm install kinfolk react
 ```
 
-React 18 and 19 are supported. The package requires Node.js 22.22.2+, 24.15.0+, or 26+, matching the supported development tooling. It exports both CommonJS and ESM entry points with TypeScript declarations. React is a peer dependency.
+React 18 and 19 are supported. It exports both CommonJS and ESM entry points with TypeScript declarations. React is a peer dependency.
 
 ## Example
 
