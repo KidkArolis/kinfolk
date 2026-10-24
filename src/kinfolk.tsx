@@ -22,10 +22,17 @@ export interface Atom<T> {
 }
 
 export interface Selector<T, A = void> {
-  (arg: A): T
+  (...args: SelectorArgs<A>): T
   label?: string
   readonly [selectorType]: true
 }
+
+type SelectorArgs<A> = undefined extends A ? [arg?: A] : [arg: A]
+type SelectorFn = (arg: never) => unknown
+type SelectorArgument<F extends SelectorFn> =
+  Parameters<F> extends [] ? void : Parameters<F>[0]
+type Readable = (() => unknown) &
+  ({ readonly [atomType]: true } | { readonly [selectorType]: true })
 
 export type Update<T> = T | ((state: T) => T)
 export interface AtomOptions {
@@ -73,9 +80,10 @@ export interface Store {
   /** Internal maps exposed for debugging, not a stable public API. */
   atomMetas: WeakMap<object, Meta>
   atomStates: AtomStates
-  get<T>(ref: Atom<T> | Selector<T>): T
+  get<R extends Readable>(ref: R): ReturnType<R>
   get<T, A>(ref: Selector<T, A>, arg: A): T
   set<T>(ref: Atom<T>, value: Update<T>): void
+  clearCache<T, A>(ref: Selector<T, A>, ...args: [] | [arg: A]): void
   debug(): Record<string, unknown> & { __selectors: Record<string, unknown> }
 }
 
@@ -136,7 +144,8 @@ export const { Provider, useSelector, useSetter, useReducer } = createContext()
 
 function createProvider(KinfolkContext: KinfolkContext) {
   return function Provider({ store, children }: ProviderProps) {
-    const [{ atomStates }] = useState(() => store || createStore())
+    const [defaultStore] = useState(createStore)
+    const { atomStates } = store ?? defaultStore
     return (
       <KinfolkContext.Provider value={atomStates}>
         {children}
@@ -154,18 +163,20 @@ export function atom<T>(initialState: T, { label }: AtomOptions = {}): Atom<T> {
   return atomRef
 }
 
-export function selector<T, A = void>(
-  selectorFn: (arg: A) => T,
-  { label, equal, persist = true }: SelectorOptions<T> = {},
-): Selector<T, A> {
+export function selector<F extends SelectorFn>(
+  selectorFn: F,
+  { label, equal, persist = true }: SelectorOptions<ReturnType<F>> = {},
+): Selector<ReturnType<F>, SelectorArgument<F>> {
+  type T = ReturnType<F>
+  type A = SelectorArgument<F>
   const selectorRef: Selector<T, A> = Object.assign(
-    (arg: A) => currentGet(selectorRef, arg) as T,
+    (...[arg]: SelectorArgs<A>) => currentGet(selectorRef, arg) as T,
     { [selectorType]: true as const },
   )
   if (label) selectorRef.label = label
   atomMetas.set(selectorRef, {
     kind: 'selector',
-    selectorFn: (arg) => selectorFn(arg as A),
+    selectorFn: (arg) => selectorFn(arg as never),
     equal: equal ? (a, b) => equal(a as T, b as T) : shallowEqual,
     persist,
   })
@@ -298,12 +309,23 @@ function useAtomStates(context: KinfolkContext): AtomStates {
   return states
 }
 
+function isDependencyList(value: unknown): value is DependencyList {
+  return Array.isArray(value)
+}
+
 function createUseSelector(KinfolkContext: KinfolkContext) {
-  return function useSelector<T>(
-    selectorFnOrRef: () => T,
-    deps?: DependencyList,
-    options: UseSelectorOptions<T> = {},
-  ): T {
+  return function useSelector<F extends () => unknown>(
+    selectorFnOrRef: F,
+    ...[depsOrOptions, options = {}]:
+      | [options?: UseSelectorOptions<ReturnType<F>>]
+      | [
+          deps: DependencyList | undefined,
+          options?: UseSelectorOptions<ReturnType<F>>,
+        ]
+  ): ReturnType<F> {
+    const hasDeps = isDependencyList(depsOrOptions)
+    const deps = hasDeps ? depsOrOptions : undefined
+    const { label, equal } = hasDeps ? options : (depsOrOptions ?? options)
     const atomStates = useAtomStates(KinfolkContext)
     const isRef = atomMetas.has(selectorFnOrRef)
     const selectorFn = useMemo(
@@ -313,15 +335,13 @@ function createUseSelector(KinfolkContext: KinfolkContext) {
       isRef ? [selectorFnOrRef] : (deps ?? [{}]),
     )
     const atomRef = useMemo(
-      () => selector(selectorFn, { ...options, persist: false }),
-      // Options are captured until the selector's dependencies change.
-      // oxlint-disable-next-line react-hooks/exhaustive-deps
-      [selectorFn],
+      () => selector(selectorFn, { label, equal, persist: false }),
+      [selectorFn, label, equal],
     )
     const { subscribe_, getSnapshot_ } = useMemo(
       () => ({
         subscribe_: (cb: () => void) => subscribe(atomStates, atomRef, cb),
-        getSnapshot_: () => getSnapshot(atomStates, atomRef) as T,
+        getSnapshot_: () => getSnapshot(atomStates, atomRef) as ReturnType<F>,
       }),
       [atomStates, atomRef],
     )
@@ -380,6 +400,19 @@ export function createStore(): Store {
     },
     set<T>(atomRef: Atom<T>, value: Update<T>) {
       update(atomStates, atomRef, (state) => setReducer(state as T, value))
+    },
+    clearCache(atomRef: Ref, ...args: [] | [unknown]) {
+      const atom = getAtom(atomStates, atomRef)
+      if (atom.kind !== 'selector')
+        throw new Error('Expected a Kinfolk selector')
+      if (args.length > 0) {
+        if (!atom.memo.delete(args[0])) return
+      } else {
+        if (atom.memo.size === 0) return
+        atom.memo.clear()
+      }
+      connectParents(atomStates, atomRef, atom)
+      notify(atomStates, atomRef)
     },
     debug() {
       const result: Record<string, unknown> & {

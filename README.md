@@ -116,7 +116,7 @@ const names = selector(() => users().map((user) => user.name), {
 })
 ```
 
-A selector can take one argument, with a separate cache entry for each argument. Argument keys use Map identity: two different objects create different entries. Persisted selector caches have no size limit or eviction policy.
+A selector can take one argument, with a separate cache entry for each argument. TypeScript infers required, optional, and defaulted arguments from the callback. For example, `selector((factor = 2) => counter() * factor)` can be called with no argument or with a number. Argument keys use Map identity: two different objects create different entries. Selector caches have no automatic size limit or eviction policy. Use `store.clearCache` to remove unused entries.
 
 ```tsx
 const multiple = selector((factor: number) => counter() * factor)
@@ -129,7 +129,7 @@ function Total() {
 
 ### `Provider`
 
-Wrap components using Kinfolk hooks in their context's Provider. It creates a store unless you supply one. The Provider captures the store on its first render; changing the `store` prop does not replace it. Remount the Provider to switch stores.
+Wrap components using Kinfolk hooks in their context's Provider. Without a `store` prop, it uses its own stable store. Changing the supplied store switches reads, subscriptions, setters, and reducers to that store. Removing the prop restores the Provider's own store. Keep a supplied store stable unless you intend to switch state; calling `createStore()` inline gives the Provider a new store on every render.
 
 ```tsx
 <Provider>
@@ -143,9 +143,9 @@ Wrap components using Kinfolk hooks in their context's Provider. It creates a st
 
 Hooks throw an error outside their matching Provider. Separate Providers have separate state unless they receive the same store.
 
-### `useSelector(selectorFnOrRef, dependencies?, options?)`
+### `useSelector(selectorFnOrRef, dependenciesOrOptions?, options?)`
 
-Reads and subscribes to an atom, an argumentless selector, or a callback that reads references. Selector families must be wrapped in a callback that supplies the argument.
+Reads and subscribes to an atom, a selector whose argument can be omitted, or a callback that reads references. Families with a required argument must be wrapped in a callback that supplies it.
 
 ```tsx
 const count = useSelector(counter)
@@ -153,11 +153,22 @@ const doubled = useSelector(double)
 const multiplied = useSelector(() => multiple(factor), [factor])
 ```
 
-For callback selectors, list captured component values in `dependencies`, as with `useCallback`. An empty list retains the callback across renders. Omitting the list refreshes it on each render. When passing a reference directly, Kinfolk tracks that reference's identity and ignores the dependency list.
+For callback selectors, pass captured component values in a dependency array, as with `useCallback`. An empty list retains the callback across renders. Omitting the list refreshes it on each render. When passing a reference directly, Kinfolk tracks that reference's identity and ignores the dependency array.
 
-The `label` and `equal` options follow `selector`. They are captured when the callback is memoized. To change them, change the callback dependencies; for a direct reference, change the reference. The internal hook selector is always nonpersistent and is removed on unsubscribe.
+The `label` and `equal` options follow `selector` and take effect when they change, including for direct references. The internal hook selector is always nonpersistent and is removed on unsubscribe.
 
 Returning the same selected result avoids a state-driven re-render.
+
+All four call forms are supported:
+
+```tsx
+useSelector(fn)
+useSelector(fn, [])
+useSelector(fn, { equal })
+useSelector(fn, [], { equal })
+```
+
+Existing calls with `undefined` as the second argument and options as the third also work.
 
 ### `useSetter(atomRef)`
 
@@ -203,6 +214,24 @@ store.get(multiple, 5)
 store.set(counter, 10)
 store.set(counter, (current) => current + 1)
 ```
+
+### `store.clearCache(selectorRef, argument?)`
+
+Clears a selector's cached results in this store. Omit the argument to clear every entry, or supply an argument to clear only that entry:
+
+```ts
+store.clearCache(multiple, 5) // Clear the result for multiple(5).
+store.clearCache(multiple) // Clear all cached arguments.
+
+const defaulted = selector((factor = 2) => counter() * factor)
+store.clearCache(defaulted, undefined) // Clear only the no-argument entry.
+```
+
+Argument keys use the same Map identity as selector reads. Explicit `undefined` targets that key; it does not clear the whole cache. Atoms are not reset, and other stores are unaffected.
+
+Subscribers are notified and active entries may be recomputed immediately. Clearing unused entries releases their cached results and dependency inputs. This operation does not add automatic eviction or change the `persist` option.
+
+### `store.debug()`
 
 `store.debug()` returns initialized atom values keyed by label, with selector caches under `__selectors`. Duplicate labels are grouped into arrays. Reserve `__selectors` for the debug output.
 
