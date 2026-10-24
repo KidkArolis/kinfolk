@@ -1,26 +1,10 @@
 # Unreleased
 
-- Record selector dependencies once per reference and argument to avoid repeated validation through nested selectors.
-
-- Keep watch mode running through initial and subsequent compiler errors.
-- Prevent writable atoms from widening their value types through assignments or explicit store and hook generics.
-- Generate distribution files when packaging, move Node requirements to contributor tooling, and run the release checks with a single coverage-enabled test run.
-- Run both examples from the root dependencies with a Node script; remove their separate package manifests, lockfiles, and Jetpack dependency.
-- Avoid retaining nonpersistent selectors from suspended or discarded React renders, and dispose unused dynamic dependencies.
-- Compare atom and selector values consistently with `Object.is`, including `NaN` and signed zero.
-- Compare own enumerable string and symbol keys in shallow object results.
-- Restore TypeScript inference for actionless reducer dispatch functions.
-
-- Release through `np --no-publish && npm publish` with package-build and full-check lifecycle hooks.
-
-- Upgrade dependencies in the library and both examples; remove vulnerable test-tooling dependencies.
-- Use Vitest and V8 coverage, esbuild, Oxlint, and Oxfmt throughout development.
-- Convert the library to strict TypeScript and publish declarations for CommonJS and ESM.
-- Declare React 18/19 peer support and update Node requirements for current development tools.
-- Enforce 100% library coverage and add CI for supported Node and React versions.
-- Fix persisted-selector subscriptions after remount and dependency tracking across selector-family arguments.
-- Fix duplicate falsy and array values in store debug output.
-- Document the API, store lifetime, selector caching, and current limitations.
+- Add built-in TypeScript support, with inferred types for atoms, selectors, setters, and reducers.
+- Support React 18 and 19, with both CommonJS and ESM imports.
+- Fix missed updates after remounting components or using selectors with arguments, plus edge cases in value comparisons and debug output.
+- Speed up repeated selector reads and fix a memory leak during rendering.
+- Update dependencies and bring library test coverage to 100%.
 
 # 0.7.4
 

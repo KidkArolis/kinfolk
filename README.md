@@ -157,7 +157,7 @@ For callback selectors, list captured component values in `dependencies`, as wit
 
 The `label` and `equal` options follow `selector`. They are captured when the callback is memoized. To change them, change the callback dependencies; for a direct reference, change the reference. The internal hook selector is always nonpersistent and is removed on unsubscribe.
 
-Kinfolk uses `useSyncExternalStore`. Returning the same selected result avoids a state-driven re-render. React still controls renders caused by parents, props, and other hooks, and controls batching.
+Returning the same selected result avoids a state-driven re-render.
 
 ### `useSetter(atomRef)`
 
@@ -204,11 +204,9 @@ store.set(counter, 10)
 store.set(counter, (current) => current + 1)
 ```
 
-`store.debug()` returns the values of initialized atoms keyed by label. Its `__selectors` property contains selector memoization Maps keyed by selector label. Each Map entry has a `value` and tracked `inputs`. Duplicate labels produce an array of values or Maps. Generated labels are for debugging and can change. Reserve `__selectors` for the debug output.
+`store.debug()` returns initialized atom values keyed by label, with selector caches under `__selectors`. Duplicate labels are grouped into arrays. Reserve `__selectors` for the debug output.
 
-Nonpersistent selectors appear in the debug registry only while subscribed or used by an active selector. Discarded renders do not retain these selectors in the registry. Registry iteration order is not guaranteed.
-
-The exposed `atomStates`, `atomMetas`, and memoization details are debugging internals, not a stable API. A TypeScript `Store` type is exported, along with `Atom`, `Selector`, `Update`, `AtomOptions`, `SelectorOptions`, `UseSelectorOptions`, and `ProviderProps`.
+Generated labels, cache contents, and the exposed `atomStates` and `atomMetas` maps are debugging internals, not a stable API.
 
 ### `createContext()`
 
@@ -228,48 +226,16 @@ const library = createContext()
 - Selector dependency cycles are not supported.
 - Changing mutable objects in place bypasses change detection. Replace changed objects and arrays.
 
-## Releases
-
-From a clean, up-to-date `main` branch, run:
-
-```sh
-npm run release
-```
-
-The script runs `np --no-publish && npm publish`. `np` reinstalls dependencies, runs `npm run check`, prompts for a version, bumps the version, and pushes the release commit and tag. The subsequent `npm publish` uses npm's own authentication flow for 2FA. Publishing requires npm 10+ and access to the package.
-
-`prepack` rebuilds JavaScript and declarations before packaging. `prepublishOnly` runs tests, type checks, lint/format checks, and the full coverage gate before any direct `npm publish`. Use `npm pack --dry-run` to inspect package contents.
-
-If npm publishing fails after `np` succeeds, the version commit and tag have already been pushed. Resolve the authentication or registry problem and retry `npm publish` for that version. Prereleases need an explicit dist-tag when publishing, for example `npm publish --tag beta`.
-
-### Dependency audits
-
-The library and examples share one dependency tree. CI requires `npm audit` to pass, including development dependencies. A `tmp` override keeps the release tool's older editor dependency on a patched version.
-
 ## Development
 
-Use a supported Node.js version and npm. `devEngines` specifies the Node versions required by the development tools; it does not restrict consumers of the library.
+Install the root dependencies, run the checks, and start the examples:
 
 ```sh
 npm ci
-npm test
-npm run coverage
-npm run build
-npm run watch
-npm run format
-npm audit
+npm run check
+npm run examples
 ```
 
-`npm test` checks Oxlint/Oxfmt, builds the library and declarations, checks the source and API type fixtures, and runs the runtime tests. `npm run check` adds coverage to the same test run, so runtime tests run once. `npm run coverage` enforces 100% statements, branches, functions, and lines for all library source files and writes an HTML report to `coverage/index.html`. `npm run build` writes JavaScript and declarations to `dist/cjs` and `dist/esm`. Generated `dist/` files are ignored by Git and rebuilt by `prepack` before packaging. Watch mode rebuilds when source files change. Compiler errors are reported without stopping the watcher; fix the error and save to rebuild.
+Open [the examples](http://127.0.0.1:3030/) and choose one. Refresh after editing to rebuild.
 
-CI runs these checks on Node 22, 24, and 26 with React 18 and 19. It also runs the dependency audit, builds both examples, and checks package contents.
-
-Both examples use the local library source and the root dependencies. Run these commands from the repository root:
-
-```sh
-npm ci
-npm run examples       # http://127.0.0.1:3030
-npm run examples:build # build both examples without starting the server
-```
-
-You can also start the examples with `node examples/run.js`. Open `/example-1/` or `/example-2/` from the server's index page. Refresh after editing to rebuild. The Node script uses the root esbuild dependency to bundle JSX, TypeScript, React, and CSS for the browser; the example directories need no package manifests or separate installs.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development commands and release instructions.
