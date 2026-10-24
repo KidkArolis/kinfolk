@@ -1,5 +1,7 @@
 # Unreleased
 
+- Keep watch mode running through initial and subsequent compiler errors.
+
 - Prevent writable atoms from widening their value types through assignments or explicit store and hook generics.
 
 - Generate distribution files when packaging, move Node requirements to contributor tooling, and run the release checks with a single coverage-enabled test run.
