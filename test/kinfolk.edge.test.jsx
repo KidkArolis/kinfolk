@@ -1,4 +1,5 @@
 import React, { StrictMode } from 'react'
+import { renderToString } from 'react-dom/server'
 import { test, expect, afterEach, vi } from 'vitest'
 import { renderHook, cleanup, act } from '@testing-library/react'
 import {
@@ -61,7 +62,11 @@ test.each([
   () => useSetter(atom(1)),
   () => useReducer(atom(1), (value) => value),
 ])('hooks require their context Provider', (hook) => {
-  expect(() => renderHook(hook)).toThrow(
+  function MissingProvider() {
+    hook()
+    return null
+  }
+  expect(() => renderToString(<MissingProvider />)).toThrow(
     'Kinfolk hooks must be used within their Provider',
   )
 })
@@ -143,8 +148,16 @@ test('atoms and selector caches are isolated between stores and providers', () =
   })
   expect(hook.result.current).toBe(0)
   const isolated = createContext()
+  function MismatchedProvider() {
+    isolated.useSelector(value)
+    return null
+  }
   expect(() =>
-    renderHook(() => isolated.useSelector(value), { wrapper: Provider }),
+    renderToString(
+      <Provider>
+        <MismatchedProvider />
+      </Provider>,
+    ),
   ).toThrow('Kinfolk hooks must be used within their Provider')
 })
 
