@@ -97,7 +97,7 @@ const equalCases = [
   [[], {}, false],
   [new Date(0), new Date(0), false],
   [NaN, NaN, true],
-  [0, -0, true],
+  [0, -0, false],
 ]
 test.each(equalCases)(
   'default equality for %j and %j',

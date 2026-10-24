@@ -250,7 +250,10 @@ function connectParents(
 function isDirty(atomStates: AtomStates, inputs: Input[]) {
   return inputs.some(
     (input) =>
-      getSnapshot(atomStates, input.atomRef, input.arg) !== input.value,
+      !Object.is(
+        getSnapshot(atomStates, input.atomRef, input.arg),
+        input.value,
+      ),
   )
 }
 
@@ -319,7 +322,7 @@ function update(
   if (atom.kind === 'selector') throw new Error('Only atoms can be updated')
   const curr = atom.state
   atom.state = updater(atom.state)
-  if (curr !== atom.state) notify(atomStates, atomRef)
+  if (!Object.is(curr, atom.state)) notify(atomStates, atomRef)
 }
 
 function createUseReducer(KinfolkContext: KinfolkContext) {
@@ -396,10 +399,9 @@ function shallowEqual(a: unknown, b: unknown) {
 }
 
 function objEqual(a: unknown, b: unknown) {
-  if (a === b) return true
   if (!a || !b) return false
   if (!isObject(a) || !isObject(b)) return false
-  for (const k in a) if (a[k] !== b[k]) return false
+  for (const k in a) if (!Object.is(a[k], b[k])) return false
   for (const k in b) if (!(k in a)) return false
   return true
 }
@@ -408,7 +410,7 @@ function arrEqual(a: unknown, b: unknown) {
   if (!a || !b) return false
   if (!Array.isArray(a) || !Array.isArray(b)) return false
   if (a.length !== b.length) return false
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false
+  for (let i = 0; i < a.length; i++) if (!Object.is(a[i], b[i])) return false
   return true
 }
 
