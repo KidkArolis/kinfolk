@@ -73,7 +73,8 @@ type State = AtomState | SelectorState
 class AtomStates extends Map<Ref, State> {
   readonly pending = new WeakMap<Ref, SelectorState>()
 }
-type KinfolkContext = Context<AtomStates | undefined>
+type ContextState = { atomStates: AtomStates; serverAtomStates: AtomStates }
+type KinfolkContext = Context<ContextState | undefined>
 type Getter = (ref: Ref, arg?: unknown) => unknown
 
 export interface Store {
@@ -129,7 +130,7 @@ function evaluateSelectorFn(
 }
 
 export function createContext() {
-  const KinfolkContext = createReactContext<AtomStates | undefined>(undefined)
+  const KinfolkContext = createReactContext<ContextState | undefined>(undefined)
   return {
     atom,
     selector,
@@ -146,12 +147,32 @@ function createProvider(KinfolkContext: KinfolkContext) {
   return function Provider({ store, children }: ProviderProps) {
     const [defaultStore] = useState(createStore)
     const { atomStates } = store ?? defaultStore
+    // Suspense boundaries may hydrate after the live store has already changed.
+    const value = useMemo(
+      () => ({ atomStates, serverAtomStates: snapshotAtoms(atomStates) }),
+      [atomStates],
+    )
     return (
-      <KinfolkContext.Provider value={atomStates}>
+      <KinfolkContext.Provider value={value}>
         {children}
       </KinfolkContext.Provider>
     )
   }
+}
+
+function snapshotAtoms(atomStates: AtomStates): AtomStates {
+  const snapshot = new AtomStates()
+  for (const [ref, atom] of atomStates) {
+    if (atom.kind === 'atom') {
+      snapshot.set(ref, {
+        ...atom,
+        listeners: new Set(),
+        parents: new Set(),
+        children: new Set(),
+      })
+    }
+  }
+  return snapshot
 }
 
 export function atom<T>(initialState: T, { label }: AtomOptions = {}): Atom<T> {
@@ -302,7 +323,7 @@ function subscribe(atomStates: AtomStates, atomRef: Ref, fn: () => void) {
   }
 }
 
-function useAtomStates(context: KinfolkContext): AtomStates {
+function useContextState(context: KinfolkContext): ContextState {
   const states = useContext(context)
   if (!states)
     throw new Error('Kinfolk hooks must be used within their Provider')
@@ -326,7 +347,7 @@ function createUseSelector(KinfolkContext: KinfolkContext) {
     const hasDeps = isDependencyList(depsOrOptions)
     const deps = hasDeps ? depsOrOptions : undefined
     const { label, equal } = hasDeps ? options : (depsOrOptions ?? options)
-    const atomStates = useAtomStates(KinfolkContext)
+    const { atomStates, serverAtomStates } = useContextState(KinfolkContext)
     const isRef = atomMetas.has(selectorFnOrRef)
     const selectorFn = useMemo(
       () => selectorFnOrRef,
@@ -338,14 +359,16 @@ function createUseSelector(KinfolkContext: KinfolkContext) {
       () => selector(selectorFn, { label, equal, persist: false }),
       [selectorFn, label, equal],
     )
-    const { subscribe_, getSnapshot_ } = useMemo(
+    const { subscribe_, getSnapshot_, getServerSnapshot_ } = useMemo(
       () => ({
         subscribe_: (cb: () => void) => subscribe(atomStates, atomRef, cb),
         getSnapshot_: () => getSnapshot(atomStates, atomRef) as ReturnType<F>,
+        getServerSnapshot_: () =>
+          getSnapshot(serverAtomStates, atomRef) as ReturnType<F>,
       }),
-      [atomStates, atomRef],
+      [atomStates, serverAtomStates, atomRef],
     )
-    return useSyncExternalStore(subscribe_, getSnapshot_)
+    return useSyncExternalStore(subscribe_, getSnapshot_, getServerSnapshot_)
   }
 }
 
@@ -366,7 +389,7 @@ function createUseReducer(KinfolkContext: KinfolkContext) {
     atomRef: Atom<T>,
     reducer: (state: T, action: A) => T,
   ) {
-    const atomStates = useAtomStates(KinfolkContext)
+    const { atomStates } = useContextState(KinfolkContext)
     return useCallback(
       function dispatch(action: A) {
         update(atomStates, atomRef, (state) => reducer(state as T, action))

@@ -247,10 +247,56 @@ const library = createContext()
 // library.useSelector, library.useSetter, library.useReducer
 ```
 
+## Server rendering
+
+Kinfolk supports React server rendering and hydration with the same Provider and hooks. Each Provider keeps an initial atom snapshot for server rendering and hydration, while client subscriptions read the live store. This keeps delayed Suspense hydration consistent even if the client store updates first.
+
+For an `App` that reads a shared `counter` atom, create a fresh store for each server request and initialize it before rendering:
+
+```tsx
+import { renderToString } from 'react-dom/server'
+import { createStore, Provider } from 'kinfolk'
+import { App, counter } from './app'
+
+export function renderPage(initialCount: number) {
+  const store = createStore()
+  store.set(counter, initialCount)
+  return renderToString(
+    <Provider store={store}>
+      <App />
+    </Provider>,
+  )
+}
+```
+
+In the browser, create a separate store with the same initial data before calling `hydrateRoot`:
+
+```tsx
+import { hydrateRoot } from 'react-dom/client'
+import { createStore, Provider } from 'kinfolk'
+import { App, counter } from './app'
+
+export function hydratePage(container: HTMLElement, initialCount: number) {
+  const store = createStore()
+  store.set(counter, initialCount)
+  return hydrateRoot(
+    container,
+    <Provider store={store}>
+      <App />
+    </Provider>,
+  )
+}
+```
+
+Pass `initialCount` through your framework's data serialization so it matches on the server and client. Kinfolk does not serialize stores or selector caches. The atom definitions and selectors must produce matching initial output on both sides.
+
+Initialize request stores before rendering or starting a server stream. Keep atom values immutable; the hydration snapshot shares their values without deep cloning and lasts for the Provider's lifetime. Avoid a module-level store on the server, which would share state between requests. Selectors must still run synchronously.
+
+In frameworks with React Server Components, use Kinfolk inside a `'use client'` boundary. See [React's server snapshot requirements](https://react.dev/reference/react/useSyncExternalStore#adding-support-for-server-rendering).
+
 ## Limits
 
-- Selectors must run synchronously. Reads after an `await` are outside Kinfolk's dependency tracking. Async loading and Suspense integration are not provided.
-- `useSelector` does not provide a server snapshot to `useSyncExternalStore`, so server rendering components that call it is not supported.
+- Selectors must run synchronously. Reads after an `await` are outside Kinfolk's dependency tracking. Async selectors and promise-based data loading are not provided.
 - Use one copy of Kinfolk in an application. References from a different copy of the module are not recognized.
 - Selector dependency cycles are not supported.
 - Changing mutable objects in place bypasses change detection. Replace changed objects and arrays.

@@ -1,5 +1,6 @@
 # Unreleased
 
+- Support server rendering and hydration, including delayed hydration after client state updates.
 - Allow passing options directly as the second argument to `useSelector`, while keeping dependency-array calls supported. Changes to equality functions and labels now take effect.
 - Providers now follow changes to their `store` prop. Keep supplied stores stable unless you intend to switch state.
 - Infer defaulted and optional selector arguments, and allow reads that return a union of atom value types.
