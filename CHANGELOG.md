@@ -1,5 +1,6 @@
 # Unreleased
 
+- Run both examples from the root dependencies with a Node script; remove their separate package manifests, lockfiles, and Jetpack dependency.
 - Avoid retaining nonpersistent selectors from suspended or discarded React renders, and dispose unused dynamic dependencies.
 - Compare atom and selector values consistently with `Object.is`, including `NaN` and signed zero.
 - Compare own enumerable string and symbol keys in shallow object results.

@@ -21,17 +21,11 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            examples/*/package-lock.json
+          cache-dependency-path: package-lock.json
       - run: npm ci
       - run: npm install --no-save --package-lock=false react@${{ matrix.react }} react-dom@${{ matrix.react }}
       - run: npm test
       - run: npm run coverage
       - run: npm audit
       - run: npm pack --dry-run
-      - name: Build and audit examples
-        run: |
-          for example in examples/example-1 examples/example-2; do
-            (cd "$example" && npm ci && npm run build && npm audit)
-          done
+      - run: npm run examples:build
