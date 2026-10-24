@@ -31,6 +31,7 @@
   },
   "scripts": {
     "test": "npm run lint && npm run build && npm run typecheck && vitest run",
+    "test:package": "node test/package/check.cjs",
     "lint": "oxlint --deny-warnings && oxfmt --check .",
     "format": "oxfmt --write .",
     "coverage": "vitest run --coverage",

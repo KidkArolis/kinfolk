@@ -1,8 +1,10 @@
-import type { MouseEventHandler } from 'react'
+import { createElement, type MouseEventHandler } from 'react'
+import { renderToString } from 'react-dom/server'
 import {
   atom,
   selector,
   createStore,
+  Provider,
   useReducer,
   useSelector,
   type Atom,
@@ -71,3 +73,8 @@ function HookForms() {
   return null
 }
 void HookForms
+
+const html: string = renderToString(
+  createElement(Provider, { store }, createElement('span', null, value)),
+)
+void html
