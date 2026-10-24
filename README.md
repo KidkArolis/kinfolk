@@ -163,6 +163,13 @@ dispatch('inc')
 dispatch('dec')
 ```
 
+Reducers without an action parameter produce a dispatch function that takes no arguments:
+
+```tsx
+const increment = useReducer(counter, (state) => state + 1)
+increment()
+```
+
 ## Stores and isolated contexts
 
 ### `createStore()`
@@ -178,6 +185,8 @@ store.set(counter, (current) => current + 1)
 ```
 
 `store.debug()` returns the values of initialized atoms keyed by label. Its `__selectors` property contains selector memoization Maps keyed by selector label. Each Map entry has a `value` and tracked `inputs`. Duplicate labels produce an array of values or Maps. Generated labels are for debugging and can change. Reserve `__selectors` for the debug output.
+
+Nonpersistent selectors appear in the debug registry only while subscribed or used by an active selector. Discarded renders do not retain these selectors in the registry. Registry iteration order is not guaranteed.
 
 The exposed `atomStates`, `atomMetas`, and memoization details are debugging internals, not a stable API. A TypeScript `Store` type is exported, along with `Atom`, `Selector`, `Update`, `AtomOptions`, `SelectorOptions`, `UseSelectorOptions`, and `ProviderProps`.
 

@@ -177,16 +177,18 @@ test('unmounting unused atoms', () => {
   expect(container.querySelector('.content-3').innerHTML).toBe('2')
   expect(container.querySelector('.content-4').innerHTML).toBe('3')
   expect(container.querySelector('.content-5')).toBe(null)
-  expect(mounted(store)).toEqual([
-    'component-1',
-    'counter-1',
-    'component-2',
-    'counter-2',
-    'component-3',
-    'counter-1-double',
-    'component-4',
-    'counter-1-triple',
-  ])
+  expect(mounted(store)).toEqual(
+    [
+      'component-1',
+      'counter-1',
+      'component-2',
+      'counter-2',
+      'component-3',
+      'counter-1-double',
+      'component-4',
+      'counter-1-triple',
+    ].sort(),
+  )
 
   // here we unmounted the useSelector of component-1
   // but the 2 atoms and selectors are still mounted
@@ -197,15 +199,17 @@ test('unmounting unused atoms', () => {
   expect(container.querySelector('.content-3').innerHTML).toBe('2')
   expect(container.querySelector('.content-4').innerHTML).toBe('3')
   expect(container.querySelector('.content-5')).toBe(null)
-  expect(mounted(store)).toEqual([
-    'counter-1',
-    'component-2',
-    'counter-2',
-    'component-3',
-    'counter-1-double',
-    'component-4',
-    'counter-1-triple',
-  ])
+  expect(mounted(store)).toEqual(
+    [
+      'counter-1',
+      'component-2',
+      'counter-2',
+      'component-3',
+      'counter-1-double',
+      'component-4',
+      'counter-1-triple',
+    ].sort(),
+  )
 
   // here we unmounted component-2 as well
   // but the 2 atoms and 2 selectors are still mounted
@@ -218,14 +222,16 @@ test('unmounting unused atoms', () => {
   expect(container.querySelector('.content-3').innerHTML).toBe('2')
   expect(container.querySelector('.content-4').innerHTML).toBe('3')
   expect(container.querySelector('.content-5')).toBe(null)
-  expect(mounted(store)).toEqual([
-    'counter-1',
-    'counter-2',
-    'component-3',
-    'counter-1-double',
-    'component-4',
-    'counter-1-triple',
-  ])
+  expect(mounted(store)).toEqual(
+    [
+      'counter-1',
+      'counter-2',
+      'component-3',
+      'counter-1-double',
+      'component-4',
+      'counter-1-triple',
+    ].sort(),
+  )
 
   // here we no longer use the double selector anywhere
   // so it gets unmounted
@@ -236,12 +242,9 @@ test('unmounting unused atoms', () => {
   expect(container.querySelector('.content-3')).toBe(null)
   expect(container.querySelector('.content-4').innerHTML).toBe('3')
   expect(container.querySelector('.content-5')).toBe(null)
-  expect(mounted(store)).toEqual([
-    'counter-1',
-    'counter-2',
-    'component-4',
-    'counter-1-triple',
-  ])
+  expect(mounted(store)).toEqual(
+    ['counter-1', 'counter-2', 'component-4', 'counter-1-triple'].sort(),
+  )
 
   // here we remount the double selector via 5th component
   fireEvent.click(container.querySelector('button'))
@@ -251,13 +254,15 @@ test('unmounting unused atoms', () => {
   expect(container.querySelector('.content-3')).toBe(null)
   expect(container.querySelector('.content-4')).toBe(null)
   expect(container.querySelector('.content-5').innerHTML).toBe('4')
-  expect(mounted(store)).toEqual([
-    'counter-1',
-    'counter-2',
-    'counter-1-triple',
-    'component-5',
-    'counter-1-double',
-  ])
+  expect(mounted(store)).toEqual(
+    [
+      'counter-1',
+      'counter-2',
+      'counter-1-triple',
+      'component-5',
+      'counter-1-double',
+    ].sort(),
+  )
 
   // and finally nothing is used, so everything gets unmounted
   // but the 2 atoms and the triple selector are persistent
@@ -268,7 +273,9 @@ test('unmounting unused atoms', () => {
   expect(container.querySelector('.content-3')).toBe(null)
   expect(container.querySelector('.content-4')).toBe(null)
   expect(container.querySelector('.content-5')).toBe(null)
-  expect(mounted(store)).toEqual(['counter-1', 'counter-2', 'counter-1-triple'])
+  expect(mounted(store)).toEqual(
+    ['counter-1', 'counter-2', 'counter-1-triple'].sort(),
+  )
 })
 
 test('inline selector', () => {
@@ -304,17 +311,15 @@ test('inline selector', () => {
   )
 
   expect(container.querySelector('.content-1').innerHTML).toBe('4')
-  expect(mounted(store).map((a) => a.replace(/\d+$/g, 'X'))).toEqual([
-    'selectorX',
-    'counter',
-  ])
+  expect(mounted(store).map((a) => a.replace(/\d+$/g, 'X'))).toEqual(
+    ['selectorX', 'counter'].sort(),
+  )
 
   fireEvent.click(container.querySelector('button'))
   expect(container.querySelector('.content-1').innerHTML).toBe('6')
-  expect(mounted(store).map((a) => a.replace(/\d+$/g, 'X'))).toEqual([
-    'counter',
-    'selectorX',
-  ])
+  expect(mounted(store).map((a) => a.replace(/\d+$/g, 'X'))).toEqual(
+    ['counter', 'selectorX'].sort(),
+  )
 })
 
 test('useSelector for reading data cache allows optimal re-renders', () => {
@@ -503,7 +508,9 @@ test('selector family', () => {
     </Provider>,
   )
 
-  expect(mounted(store)).toEqual(['double', 'times', 'counter', 'triple'])
+  expect(mounted(store)).toEqual(
+    ['double', 'times', 'counter', 'triple'].sort(),
+  )
 
   expect(container.querySelector('.content-1').innerHTML).toBe('42')
   expect(container.querySelector('.content-2').innerHTML).toBe('63')
@@ -515,7 +522,7 @@ test('selector family', () => {
 
   unmount()
 
-  expect(mounted(store)).toEqual(['times', 'counter'])
+  expect(mounted(store)).toEqual(['times', 'counter'].sort())
 })
 
 test('updating atoms via store', () => {
@@ -575,7 +582,7 @@ test('updating atoms via store', () => {
   const __selectors = Object.keys(d.__selectors)
   delete d.__selectors
   expect(d).toEqual({ counter: 6 })
-  expect(__selectors).toEqual(['val1', 'double', 'nth', 'val2'])
+  expect(__selectors.sort()).toEqual(['val1', 'double', 'nth', 'val2'].sort())
 })
 
 test('useSelector will memo values using a shallow comparator by default', () => {
@@ -682,5 +689,5 @@ test('selector mixing atoms from different contexts', () => {
 
 function mounted(store) {
   const atomStates = Array.from(store.atomStates.values())
-  return atomStates.map((a) => a.label)
+  return atomStates.map((a) => a.label).sort()
 }

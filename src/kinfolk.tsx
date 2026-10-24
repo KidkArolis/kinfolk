@@ -61,7 +61,9 @@ type CommonState = {
 type AtomState = CommonState & { kind: 'atom'; state: unknown }
 type SelectorState = CommonState & SelectorMeta & { memo: Map<unknown, Memo> }
 type State = AtomState | SelectorState
-type AtomStates = Map<Ref, State>
+class AtomStates extends Map<Ref, State> {
+  readonly pending = new WeakMap<Ref, SelectorState>()
+}
 type KinfolkContext = Context<AtomStates | undefined>
 type Getter = (ref: Ref, arg?: unknown) => unknown
 
@@ -94,18 +96,11 @@ function withGetter<T>(get: Getter, fn: () => T): T {
 
 function evaluateSelectorFn(
   atomStates: AtomStates,
-  atomRef: Ref,
   atom: SelectorState,
   arg: unknown,
 ): Memo {
-  for (const parentAtomRef of atom.parents) {
-    getAtom(atomStates, parentAtomRef).children.delete(atomRef)
-  }
-  atom.parents.clear()
-
   const inputs: Input[] = []
   const get: Getter = (parentAtomRef, arg) => {
-    atom.parents.add(parentAtomRef)
     const value = getSnapshot(atomStates, parentAtomRef, arg)
     inputs.push({ atomRef: parentAtomRef, arg, value })
     return value
@@ -167,7 +162,7 @@ export function selector<T, A = void>(
 }
 
 function getAtom(atomStates: AtomStates, atomRef: Ref): State {
-  const existing = atomStates.get(atomRef)
+  const existing = atomStates.get(atomRef) || atomStates.pending.get(atomRef)
   if (existing) return existing
   const meta = atomMetas.get(atomRef)
   if (!meta) throw new Error('Expected a Kinfolk atom or selector')
@@ -185,7 +180,10 @@ function getAtom(atomStates: AtomStates, atomRef: Ref): State {
     meta.kind === 'atom'
       ? { ...common, kind: 'atom', state: meta.initialState }
       : { ...common, ...meta, memo: new Map() }
-  atomStates.set(atomRef, state)
+  // React may discard this render before subscribing. Keep its selector cache weak.
+  if (state.kind === 'selector' && !state.persist)
+    atomStates.pending.set(atomRef, state)
+  else atomStates.set(atomRef, state)
   return state
 }
 
@@ -196,7 +194,10 @@ function dispose(atomStates: AtomStates, atomRef: Ref) {
     atom.listeners.size === 0 &&
     atom.children.size === 0
   ) {
-    if (!atom.persist) atomStates.delete(atomRef)
+    if (!atom.persist) {
+      atomStates.delete(atomRef)
+      atomStates.pending.delete(atomRef)
+    }
     for (const parentAtomRef of atom.parents) {
       getAtom(atomStates, parentAtomRef).children.delete(atomRef)
       dispose(atomStates, parentAtomRef)
@@ -216,33 +217,37 @@ function getSnapshot(
     connectParents(atomStates, atomRef, atom)
     return memo.value
   }
-  const next = evaluateSelectorFn(atomStates, atomRef, atom, arg)
+  const next = evaluateSelectorFn(atomStates, atom, arg)
   if (memo && atom.equal(memo.value, next.value)) next.value = memo.value
   atom.memo.set(arg, next)
   connectParents(atomStates, atomRef, atom)
   return next.value
 }
 
-// Track every cached argument, but only attach notification edges for active selectors.
-// Discarded React renders must not keep dependencies alive.
+// Only subscribed selectors and their dependencies are retained strongly.
 function connectParents(
   atomStates: AtomStates,
   atomRef: Ref,
   atom: SelectorState,
 ) {
-  const active = atom.listeners.size > 0 || atom.children.size > 0
-  for (const parentRef of atom.parents)
-    getAtom(atomStates, parentRef).children.delete(atomRef)
-  atom.parents.clear()
+  const parents = new Set<Ref>()
   for (const { inputs } of atom.memo.values()) {
-    for (const { atomRef: parentRef } of inputs) {
-      atom.parents.add(parentRef)
-      if (active) {
-        const parent = getAtom(atomStates, parentRef)
-        parent.children.add(atomRef)
-        if (parent.kind === 'selector')
-          connectParents(atomStates, parentRef, parent)
-      }
+    for (const { atomRef: parentRef } of inputs) parents.add(parentRef)
+  }
+  for (const parentRef of atom.parents) {
+    if (!parents.has(parentRef)) {
+      getAtom(atomStates, parentRef).children.delete(atomRef)
+      dispose(atomStates, parentRef)
+    }
+  }
+  atom.parents = parents
+  if (atom.listeners.size > 0 || atom.children.size > 0) {
+    atomStates.set(atomRef, atom)
+    for (const parentRef of parents) {
+      const parent = getAtom(atomStates, parentRef)
+      parent.children.add(atomRef)
+      if (parent.kind === 'selector')
+        connectParents(atomStates, parentRef, parent)
     }
   }
 }
@@ -355,7 +360,7 @@ function setReducer<T>(state: T, update: Update<T>): T {
 }
 
 export function createStore(): Store {
-  const atomStates: AtomStates = new Map()
+  const atomStates = new AtomStates()
   return {
     atomMetas,
     atomStates,

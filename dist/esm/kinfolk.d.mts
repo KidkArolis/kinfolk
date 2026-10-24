@@ -61,7 +61,9 @@ type SelectorState = CommonState & SelectorMeta & {
     memo: Map<unknown, Memo>;
 };
 type State = AtomState | SelectorState;
-type AtomStates = Map<Ref, State>;
+declare class AtomStates extends Map<Ref, State> {
+    readonly pending: WeakMap<Ref, SelectorState>;
+}
 export interface Store {
     /** Internal maps exposed for debugging, not a stable public API. */
     atomMetas: WeakMap<object, Meta>;
