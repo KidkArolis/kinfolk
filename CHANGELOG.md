@@ -1,11 +1,10 @@
 # Unreleased
 
+- Record selector dependencies once per reference and argument to avoid repeated validation through nested selectors.
+
 - Keep watch mode running through initial and subsequent compiler errors.
-
 - Prevent writable atoms from widening their value types through assignments or explicit store and hook generics.
-
 - Generate distribution files when packaging, move Node requirements to contributor tooling, and run the release checks with a single coverage-enabled test run.
-
 - Run both examples from the root dependencies with a Node script; remove their separate package manifests, lockfiles, and Jetpack dependency.
 - Avoid retaining nonpersistent selectors from suspended or discarded React renders, and dispose unused dynamic dependencies.
 - Compare atom and selector values consistently with `Object.is`, including `NaN` and signed zero.

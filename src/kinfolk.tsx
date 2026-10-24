@@ -102,9 +102,18 @@ function evaluateSelectorFn(
   arg: unknown,
 ): Memo {
   const inputs: Input[] = []
+  const seen = new Map<Ref, Set<unknown>>()
   const get: Getter = (parentAtomRef, arg) => {
     const value = getSnapshot(atomStates, parentAtomRef, arg)
-    inputs.push({ atomRef: parentAtomRef, arg, value })
+    let args = seen.get(parentAtomRef)
+    if (!args) {
+      args = new Set()
+      seen.set(parentAtomRef, args)
+    }
+    if (!args.has(arg)) {
+      args.add(arg)
+      inputs.push({ atomRef: parentAtomRef, arg, value })
+    }
     return value
   }
   const value = withGetter(get, () => atom.selectorFn(arg))
