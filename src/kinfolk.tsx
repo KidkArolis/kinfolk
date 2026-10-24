@@ -88,6 +88,7 @@ export interface Store {
   get<R extends Readable>(ref: R): ReturnType<R>
   get<T, A>(ref: Selector<T, A>, arg: A): T
   set<T>(ref: Atom<T>, value: Update<T>): void
+  clearCache<T, A>(ref: Selector<T, A>, ...args: [] | [arg: A]): void
   debug(): Record<string, unknown> & { __selectors: Record<string, unknown> }
 }
 
@@ -397,6 +398,19 @@ export function createStore(): Store {
     },
     set<T>(atomRef: Atom<T>, value: Update<T>) {
       update(atomStates, atomRef, (state) => setReducer(state as T, value))
+    },
+    clearCache(atomRef: Ref, ...args: [] | [unknown]) {
+      const atom = getAtom(atomStates, atomRef)
+      if (atom.kind !== 'selector')
+        throw new Error('Expected a Kinfolk selector')
+      if (args.length > 0) {
+        if (!atom.memo.delete(args[0])) return
+      } else {
+        if (atom.memo.size === 0) return
+        atom.memo.clear()
+      }
+      connectParents(atomStates, atomRef, atom)
+      notify(atomStates, atomRef)
     },
     debug() {
       const result: Record<string, unknown> & {

@@ -36,3 +36,11 @@ store.get(defaulted, 'wrong')
 void inferred
 void explicit
 void union
+
+store.clearCache(defaulted)
+store.clearCache(defaulted, 2)
+store.clearCache(defaulted, undefined)
+// @ts-expect-error Published cache clearing rejects atoms.
+store.clearCache(count)
+// @ts-expect-error Published cache clearing retains argument types.
+store.clearCache(defaulted, 'wrong')

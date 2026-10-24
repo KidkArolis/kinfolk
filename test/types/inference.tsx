@@ -43,7 +43,16 @@ const widened: Atom<string | number> = count
 function Component() {
   const selected: number = useSelector(times)
   const maybe: number = useSelector(optional)
-  const union: string | number = useSelector(choice)
+  const union: string | number = useSelector(choice, {
+    equal: (previous, next) => {
+      const before: string | number = previous
+      const after: string | number = next
+      return Object.is(before, after)
+    },
+  })
+  useSelector(count, {
+    equal: (previous, next) => previous.toFixed() === next.toFixed(),
+  })
   // @ts-expect-error A union selection cannot be narrowed to one possible type.
   const wrong: number = useSelector(choice)
   // @ts-expect-error Required family arguments must still be supplied.
@@ -65,3 +74,18 @@ void read
 void narrow
 void widened
 void Component
+
+store.clearCache(times)
+store.clearCache(times, 2)
+store.clearCache(times, undefined)
+store.clearCache(required)
+store.clearCache(required, 2)
+store.clearCache(plain)
+// @ts-expect-error Atoms do not have selector caches.
+store.clearCache(count)
+// @ts-expect-error Cache arguments retain the selector's argument type.
+store.clearCache(required, 'wrong')
+// @ts-expect-error Argumentless selectors reject arbitrary cache arguments.
+store.clearCache(plain, 2)
+// @ts-expect-error Cache clearing accepts at most one argument key.
+store.clearCache(times, 2, 3)

@@ -116,7 +116,7 @@ const names = selector(() => users().map((user) => user.name), {
 })
 ```
 
-A selector can take one argument, with a separate cache entry for each argument. TypeScript infers required, optional, and defaulted arguments from the callback. For example, `selector((factor = 2) => counter() * factor)` can be called with no argument or with a number. Argument keys use Map identity: two different objects create different entries. Persisted selector caches have no size limit or eviction policy.
+A selector can take one argument, with a separate cache entry for each argument. TypeScript infers required, optional, and defaulted arguments from the callback. For example, `selector((factor = 2) => counter() * factor)` can be called with no argument or with a number. Argument keys use Map identity: two different objects create different entries. Selector caches have no automatic size limit or eviction policy. Use `store.clearCache` to remove unused entries.
 
 ```tsx
 const multiple = selector((factor: number) => counter() * factor)
@@ -129,7 +129,7 @@ function Total() {
 
 ### `Provider`
 
-Wrap components using Kinfolk hooks in their context's Provider. Without a `store` prop, it uses its own stable store. Changing the supplied store switches reads, subscriptions, setters, and reducers to that store. Removing the prop restores the Provider's own store.
+Wrap components using Kinfolk hooks in their context's Provider. Without a `store` prop, it uses its own stable store. Changing the supplied store switches reads, subscriptions, setters, and reducers to that store. Removing the prop restores the Provider's own store. Keep a supplied store stable unless you intend to switch state; calling `createStore()` inline gives the Provider a new store on every render.
 
 ```tsx
 <Provider>
@@ -145,7 +145,7 @@ Hooks throw an error outside their matching Provider. Separate Providers have se
 
 ### `useSelector(selectorFnOrRef, options?)`
 
-Reads and subscribes to an atom, an argumentless selector, or a callback that reads references. Selector families must be wrapped in a callback that supplies the argument.
+Reads and subscribes to an atom, a selector whose argument can be omitted, or a callback that reads references. Families with a required argument must be wrapped in a callback that supplies it.
 
 ```tsx
 const count = useSelector(counter)
@@ -158,6 +158,8 @@ For callback selectors, list captured component values in `options.deps`, as wit
 The `label` and `equal` options follow `selector` and take effect when they change, including for direct references. The internal hook selector is always nonpersistent and is removed on unsubscribe.
 
 Returning the same selected result avoids a state-driven re-render.
+
+To migrate older calls, replace `useSelector(fn, deps, options)` with `useSelector(fn, { ...options, deps })`.
 
 ### `useSetter(atomRef)`
 
@@ -203,6 +205,24 @@ store.get(multiple, 5)
 store.set(counter, 10)
 store.set(counter, (current) => current + 1)
 ```
+
+### `store.clearCache(selectorRef, argument?)`
+
+Clears a selector's cached results in this store. Omit the argument to clear every entry, or supply an argument to clear only that entry:
+
+```ts
+store.clearCache(multiple, 5) // Clear the result for multiple(5).
+store.clearCache(multiple) // Clear all cached arguments.
+
+const defaulted = selector((factor = 2) => counter() * factor)
+store.clearCache(defaulted, undefined) // Clear only the no-argument entry.
+```
+
+Argument keys use the same Map identity as selector reads. Explicit `undefined` targets that key; it does not clear the whole cache. Atoms are not reset, and other stores are unaffected.
+
+Subscribers are notified and active entries may be recomputed immediately. Clearing unused entries releases their cached results and dependency inputs. This operation does not add automatic eviction or change the `persist` option.
+
+### `store.debug()`
 
 `store.debug()` returns initialized atom values keyed by label, with selector caches under `__selectors`. Duplicate labels are grouped into arrays. Reserve `__selectors` for the debug output.
 
