@@ -183,16 +183,15 @@ function subscribe(atomStates, atomRef, fn) {
 function createUseSelector(KinfolkContext) {
   return function useSelector2(selectorFnOrRef, deps, options = {}) {
     const atomStates = (0, import_react.useContext)(KinfolkContext);
-    const selectorFn = isAtomOrSelectorRef(selectorFnOrRef) ? (
-      // eslint-disable-next-line react-hooks/rules-of-hooks
-      (0, import_react.useCallback)(() => selectorFnOrRef(), [selectorFnOrRef])
-    ) : (
-      // eslint-disable-next-line react-hooks/rules-of-hooks, react-hooks/exhaustive-deps
-      (0, import_react.useCallback)(selectorFnOrRef, deps)
+    const isRef = isAtomOrSelectorRef(selectorFnOrRef);
+    const selectorFn = (0, import_react.useCallback)(
+      () => selectorFnOrRef(),
+      // oxlint-disable-next-line react-hooks/exhaustive-deps
+      isRef ? [selectorFnOrRef] : deps
     );
     const atomRef = (0, import_react.useMemo)(
       () => selector(selectorFn, { ...options, persist: false }),
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+      // oxlint-disable-next-line react-hooks/exhaustive-deps
       [selectorFn]
     );
     const { subscribe_, getSnapshot_ } = (0, import_react.useMemo)(

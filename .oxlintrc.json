@@ -1,9 +1,17 @@
 {
-  "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxlint/configuration_schema.json",
-  "plugins": ["react"],
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["eslint", "unicorn", "typescript", "oxc", "react"],
   "rules": {
     "react-hooks/rules-of-hooks": "error",
     "react-hooks/exhaustive-deps": "error"
   },
-  "ignorePatterns": ["dist"]
+  "ignorePatterns": ["dist/**", "coverage/**", "examples/*/dist/**"],
+  "overrides": [
+    {
+      "files": ["test/**/*.jsx"],
+      "rules": {
+        "react/refs": "off"
+      }
+    }
+  ]
 }
