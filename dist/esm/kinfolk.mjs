@@ -30,9 +30,7 @@ function evaluateSelectorFn(atomStates, atomRef, atom2, arg) {
   atom2.parents.clear();
   const inputs = [];
   const get = (parentAtomRef, arg2) => {
-    const parentAtom = getAtom(atomStates, parentAtomRef);
     atom2.parents.add(parentAtomRef);
-    parentAtom.children.add(atomRef);
     const value2 = getSnapshot(atomStates, parentAtomRef, arg2);
     inputs.push({ atomRef: parentAtomRef, arg: arg2, value: value2 });
     return value2;
@@ -109,11 +107,32 @@ function getSnapshot(atomStates, atomRef, arg) {
   const atom2 = getAtom(atomStates, atomRef);
   if (atom2.kind === "atom") return atom2.state;
   const memo = atom2.memo.get(arg);
-  if (memo && !isDirty(atomStates, memo.inputs)) return memo.value;
+  if (memo && !isDirty(atomStates, memo.inputs)) {
+    connectParents(atomStates, atomRef, atom2);
+    return memo.value;
+  }
   const next = evaluateSelectorFn(atomStates, atomRef, atom2, arg);
   if (memo && atom2.equal(memo.value, next.value)) next.value = memo.value;
   atom2.memo.set(arg, next);
+  connectParents(atomStates, atomRef, atom2);
   return next.value;
+}
+function connectParents(atomStates, atomRef, atom2) {
+  const active = atom2.listeners.size > 0 || atom2.children.size > 0;
+  for (const parentRef of atom2.parents)
+    getAtom(atomStates, parentRef).children.delete(atomRef);
+  atom2.parents.clear();
+  for (const { inputs } of atom2.memo.values()) {
+    for (const { atomRef: parentRef } of inputs) {
+      atom2.parents.add(parentRef);
+      if (active) {
+        const parent = getAtom(atomStates, parentRef);
+        parent.children.add(atomRef);
+        if (parent.kind === "selector")
+          connectParents(atomStates, parentRef, parent);
+      }
+    }
+  }
 }
 function isDirty(atomStates, inputs) {
   return inputs.some(
@@ -123,11 +142,12 @@ function isDirty(atomStates, inputs) {
 function notify(atomStates, atomRef) {
   const atom2 = getAtom(atomStates, atomRef);
   atom2.listeners.forEach((listener) => listener());
-  atom2.children.forEach((childRef) => notify(atomStates, childRef));
+  for (const childRef of [...atom2.children]) notify(atomStates, childRef);
 }
 function subscribe(atomStates, atomRef, fn) {
   const atom2 = getAtom(atomStates, atomRef);
   atom2.listeners.add(fn);
+  getSnapshot(atomStates, atomRef);
   return function unsubscribe() {
     atom2.listeners.delete(fn);
     dispose(atomStates, atomRef);
@@ -205,15 +225,24 @@ function createStore() {
     },
     debug() {
       const result = { __selectors: {} };
+      const groups = /* @__PURE__ */ new Map();
       for (const atomState of atomStates.values()) {
         const { label } = atomState;
         const dest = atomState.kind === "selector" ? result.__selectors : result;
         const val = atomState.kind === "selector" ? atomState.memo : atomState.state;
-        const previous = dest[label];
-        if (previous) {
-          if (Array.isArray(previous)) previous.push(val);
-          else dest[label] = [previous, val];
-        } else dest[label] = val;
+        let labels = groups.get(dest);
+        if (!labels) {
+          labels = /* @__PURE__ */ new Map();
+          groups.set(dest, labels);
+        }
+        const group = labels.get(label);
+        if (group) {
+          group.push(val);
+          dest[label] = group;
+        } else {
+          labels.set(label, [val]);
+          dest[label] = val;
+        }
       }
       return result;
     }
@@ -231,7 +260,6 @@ function objEqual(a, b) {
   return true;
 }
 function arrEqual(a, b) {
-  if (a === b) return true;
   if (!a || !b) return false;
   if (!Array.isArray(a) || !Array.isArray(b)) return false;
   if (a.length !== b.length) return false;
