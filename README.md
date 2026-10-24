@@ -248,7 +248,7 @@ The library and examples share one dependency tree. CI requires `npm audit` to p
 
 ## Development
 
-Use a supported Node.js version and npm.
+Use a supported Node.js version and npm. `devEngines` specifies the Node versions required by the development tools; it does not restrict consumers of the library.
 
 ```sh
 npm ci
@@ -260,7 +260,7 @@ npm run format
 npm audit
 ```
 
-`npm test` checks Oxlint/Oxfmt, builds the library and declarations, checks the source and API type fixtures, and runs the runtime tests. `npm run coverage` enforces 100% statements, branches, functions, and lines for all library source files and writes an HTML report to `coverage/index.html`. `npm run build` writes JavaScript and declarations to `dist/cjs` and `dist/esm`. Watch mode rebuilds when source files change.
+`npm test` checks Oxlint/Oxfmt, builds the library and declarations, checks the source and API type fixtures, and runs the runtime tests. `npm run check` adds coverage to the same test run, so runtime tests run once. `npm run coverage` enforces 100% statements, branches, functions, and lines for all library source files and writes an HTML report to `coverage/index.html`. `npm run build` writes JavaScript and declarations to `dist/cjs` and `dist/esm`. Generated `dist/` files are ignored by Git and rebuilt by `prepack` before packaging. Watch mode rebuilds when source files change.
 
 CI runs these checks on Node 22, 24, and 26 with React 18 and 19. It also runs the dependency audit, builds both examples, and checks package contents.
 

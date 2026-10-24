@@ -24,8 +24,7 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm ci
       - run: npm install --no-save --package-lock=false react@${{ matrix.react }} react-dom@${{ matrix.react }}
-      - run: npm test
-      - run: npm run coverage
+      - run: npm run check
       - run: npm audit
       - run: npm pack --dry-run
       - run: npm run examples:build
