@@ -1,5 +1,7 @@
 # Unreleased
 
+- Release through `np --no-publish && npm publish` with package-build and full-check lifecycle hooks.
+
 - Upgrade dependencies in the library and both examples; remove vulnerable test-tooling dependencies.
 - Use Vitest and V8 coverage, esbuild, Oxlint, and Oxfmt throughout development.
 - Convert the library to strict TypeScript and publish declarations for CommonJS and ESM.

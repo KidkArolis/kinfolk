@@ -199,6 +199,24 @@ const library = createContext()
 - Selector dependency cycles are not supported.
 - Changing mutable objects in place bypasses change detection. Replace changed objects and arrays.
 
+## Releases
+
+From a clean, up-to-date `main` branch, run:
+
+```sh
+npm run release
+```
+
+The script runs `np --no-publish && npm publish`. `np` reinstalls dependencies, runs `npm run check`, prompts for a version, bumps the version, and pushes the release commit and tag. The subsequent `npm publish` uses npm's own authentication flow for 2FA. Publishing requires npm 10+ and access to the package.
+
+`prepack` rebuilds JavaScript and declarations before packaging. `prepublishOnly` runs tests, type checks, lint/format checks, and the full coverage gate before any direct `npm publish`. Use `npm pack --dry-run` to inspect package contents.
+
+If npm publishing fails after `np` succeeds, the version commit and tag have already been pushed. Resolve the authentication or registry problem and retry `npm publish` for that version. Prereleases need an explicit dist-tag when publishing, for example `npm publish --tag beta`.
+
+### Dependency audits
+
+The full dependency audits for the library and both examples are clean. CI requires all three audits to pass, including development dependencies. A `tmp` override keeps the release tool's older editor dependency on a patched version.
+
 ## Development
 
 Use a supported Node.js version and npm.
