@@ -1,6 +1,7 @@
 // @vitest-environment node
-import { spawn } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { once } from 'node:events'
+import { createRequire } from 'node:module'
 import {
   copyFileSync,
   mkdirSync,
@@ -12,10 +13,12 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { expect, test, vi } from 'vitest'
+import { pathToFileURL } from 'node:url'
+import { expect, onTestFinished, test, vi } from 'vitest'
 
-test('watch mode recovers from initial and subsequent TypeScript errors', async () => {
+function createFixture() {
   const fixture = mkdtempSync(path.join(tmpdir(), 'kinfolk-watch-'))
+  onTestFinished(() => rmSync(fixture, { recursive: true, force: true }))
   mkdirSync(path.join(fixture, 'src'))
   copyFileSync('build.js', path.join(fixture, 'build.js'))
   copyFileSync('tsconfig.json', path.join(fixture, 'tsconfig.json'))
@@ -24,6 +27,55 @@ test('watch mode recovers from initial and subsequent TypeScript errors', async 
     path.join(fixture, 'node_modules'),
     'dir',
   )
+  return fixture
+}
+
+test('JavaScript and declarations use the same checked source despite a later edit', async () => {
+  const fixture = createFixture()
+  writeFileSync(
+    path.join(fixture, 'src/kinfolk.tsx'),
+    `import React from 'react'
+export const value: number = 1
+export const view = <span>{value}</span>
+`,
+  )
+  const edit = path.join(fixture, 'edit-after-check.cjs')
+  writeFileSync(
+    edit,
+    `const childProcess = require('node:child_process')
+const { writeFileSync } = require('node:fs')
+const compile = childProcess.execFileSync
+childProcess.execFileSync = (...args) => {
+  const result = compile(...args)
+  writeFileSync('src/kinfolk.tsx', "export const value: number = 'broken'\\n")
+  return result
+}
+`,
+  )
+  execFileSync(process.execPath, ['--require', edit, 'build.js'], {
+    cwd: fixture,
+    stdio: 'pipe',
+  })
+  const cjs = createRequire(import.meta.url)(
+    path.join(fixture, 'dist/cjs/kinfolk.cjs'),
+  )
+  const esm = await import(
+    pathToFileURL(path.join(fixture, 'dist/esm/kinfolk.mjs')).href
+  )
+  for (const exports of [cjs, esm]) {
+    expect(exports.value).toBe(1)
+    expect(exports.view.type).toBe('span')
+    expect(exports.view.props.children).toBe(1)
+  }
+  for (const file of ['dist/cjs/kinfolk.d.cts', 'dist/esm/kinfolk.d.mts']) {
+    expect(readFileSync(path.join(fixture, file), 'utf8')).toContain(
+      'value: number',
+    )
+  }
+})
+
+test('watch mode recovers from initial and subsequent TypeScript errors', async () => {
+  const fixture = createFixture()
   const source = path.join(fixture, 'src/kinfolk.tsx')
   const writeSource = (value) =>
     writeFileSync(source, `export const value: number = ${value}\n`)
@@ -74,6 +126,5 @@ test('watch mode recovers from initial and subsequent TypeScript errors', async 
       child.kill()
       await exited
     }
-    rmSync(fixture, { recursive: true, force: true })
   }
 }, 30000)

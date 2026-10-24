@@ -11,17 +11,28 @@ const { transformSync } = require('esbuild')
 function build() {
   execFileSync(
     process.execPath,
-    ['node_modules/typescript/bin/tsc', '--emitDeclarationOnly'],
+    [
+      'node_modules/typescript/bin/tsc',
+      '--emitDeclarationOnly',
+      'false',
+      '--noEmitOnError',
+      '--module',
+      'preserve',
+      '--moduleResolution',
+      'bundler',
+      '--jsx',
+      'preserve',
+    ],
     { stdio: 'inherit' },
   )
-  const source = readFileSync('src/kinfolk.tsx', 'utf8')
+  const source = readFileSync('dist/kinfolk.jsx', 'utf8')
   for (const [format, file] of [
     ['esm', 'dist/esm/kinfolk.mjs'],
     ['cjs', 'dist/cjs/kinfolk.cjs'],
   ]) {
     mkdirSync(`dist/${format}`, { recursive: true })
     const { code } = transformSync(source, {
-      loader: 'tsx',
+      loader: 'jsx',
       format,
       target: 'es2020',
     })
@@ -32,6 +43,7 @@ function build() {
     )
   }
   unlinkSync('dist/kinfolk.d.ts')
+  unlinkSync('dist/kinfolk.jsx')
 }
 
 if (process.argv.includes('-w')) {
