@@ -1,6 +1,6 @@
 {
   "name": "kinfolk",
-  "version": "0.7.4",
+  "version": "0.8.0",
   "description": "Atoms and selectors for React",
   "license": "ISC",
   "author": "Karolis Narkevicius <hey@k8.lt>",
