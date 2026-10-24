@@ -2,7 +2,27 @@
 
 Atoms and selectors for React. Share state through a Provider and subscribe to individual values or derived values with `useSelector`.
 
-Kinfolk keeps the store in React context and notifies subscribers when atoms change. A component using `useSelector` re-renders when its selected value changes. Components using only `useSetter` or `useReducer` do not subscribe to state changes.
+## Why?
+
+Kinfolk adds granular subscriptions to shared React state. It lets you:
+
+- Share state across distant parts of an application.
+- Subscribe to individual atoms, slices of state, or derived values.
+- Keep many independent atoms under one Provider, without creating a context for each piece of state.
+- Build libraries with isolated contexts, while allowing the application and library to share a store when needed.
+
+With React Context, changing the provider's value re-renders every component that reads that context, even if the particular field it uses has not changed. If the component holding the provider's state also recreates its children, its own render can cascade through the subtree. Memoization or stable children can avoid some parent-driven renders, but context consumers still receive the changed context value. See [React's context caveats](https://react.dev/reference/react/useContext#caveats).
+
+Kinfolk keeps the store stable in React context and subscribes components to their selected values. In the checkout example below, editing the card field can leave the basket count unchanged, so the component reading that count does not need to re-render because of that update.
+
+### How updates stay granular
+
+- Selectors cache derived values and recalculate when their inputs change.
+- Shallow equality lets selectors reuse equivalent object and array results.
+- `useSyncExternalStore` skips a state-driven re-render when the selected result is unchanged.
+- Components using only `useSetter` or `useReducer` do not subscribe to state changes.
+
+React still controls batching and renders caused by parents, props, and other hooks.
 
 ## Install
 
