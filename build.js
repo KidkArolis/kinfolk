@@ -1,21 +1,21 @@
-const watch = process.argv[2] === '-w'
-const w = watch ? ' -w' : ''
+const { mkdirSync, readFileSync, writeFileSync, watch } = require('node:fs')
+const { transformSync } = require('esbuild')
 
-;(async function () {
-  const { execa } = await import('execa')
-  const sh = (...args) => execa(...args, { stdio: 'inherit', shell: true })
+function build() {
+  const source = readFileSync('src/kinfolk.jsx', 'utf8')
+  for (const [format, file] of [
+    ['esm', 'dist/esm/kinfolk.mjs'],
+    ['cjs', 'dist/cjs/kinfolk.cjs'],
+  ]) {
+    mkdirSync(`dist/${format}`, { recursive: true })
+    const { code } = transformSync(source, {
+      loader: 'jsx',
+      format,
+      target: 'es2020',
+    })
+    writeFileSync(file, code)
+  }
+}
 
-  await sh('rm -rf dist')
-  await sh('mkdir -p dist')
-
-  const swc = './node_modules/.bin/swc'
-  await sh(
-    `${swc}${w} --no-swcrc src/kinfolk.js -o dist/esm/kinfolk.mjs --config-file=./.swc-esm`,
-  )
-  await sh(
-    `${swc}${w} --no-swcrc src/kinfolk.js -o dist/cjs/kinfolk.cjs --config-file=./.swc-cjs`,
-  )
-
-  const prettier = './node_modules/.bin/prettier'
-  await sh(`${prettier} --write ./dist`)
-})()
+build()
+if (process.argv.includes('-w')) watch('src', build)
