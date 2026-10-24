@@ -96,7 +96,7 @@ const counter = atom(0)
 const users = atom<{ id: string; name: string }[]>([], { label: 'users' })
 ```
 
-TypeScript infers the value type from the initial value. Supply a type argument for empty arrays or values that will later take another form, such as `atom<string | null>(null)`.
+TypeScript infers the value type from the initial value. Writable atoms keep that exact type, so an `Atom<number>` cannot be widened to `Atom<number | string>` and then written with a string. Supply a type argument for empty arrays or values that will later take another form, such as `atom<string | null>(null)`.
 
 ### `selector(selectorFn, options?)`
 

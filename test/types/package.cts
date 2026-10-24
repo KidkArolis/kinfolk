@@ -21,3 +21,7 @@ function Component() {
   return null
 }
 void Component
+
+// @ts-expect-error Published writable atoms cannot widen to permit invalid writes.
+const mixed: Atom<number | string> = count
+void mixed

@@ -1,5 +1,7 @@
 # Unreleased
 
+- Prevent writable atoms from widening their value types through assignments or explicit store and hook generics.
+
 - Generate distribution files when packaging, move Node requirements to contributor tooling, and run the release checks with a single coverage-enabled test run.
 
 - Run both examples from the root dependencies with a Node script; remove their separate package manifests, lockfiles, and Jetpack dependency.

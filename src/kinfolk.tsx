@@ -12,11 +12,13 @@ import React, {
 
 const atomType = Symbol('atom')
 const selectorType = Symbol('selector')
+declare const atomValue: unique symbol
 
 export interface Atom<T> {
   (): T
   label?: string
   readonly [atomType]: true
+  readonly [atomValue]?: (value: T) => T
 }
 
 export interface Selector<T, A = void> {
