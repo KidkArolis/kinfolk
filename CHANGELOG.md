@@ -1,3 +1,8 @@
+# 0.8.1
+
+- Fix TypeScript support for using actionless reducer dispatchers as event handlers.
+- Include the ISC license text in the published package.
+
 # 0.8.0
 
 - Support server rendering and hydration, including delayed hydration after client state updates.

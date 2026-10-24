@@ -1,3 +1,4 @@
+import React from 'react'
 import { atom, createContext, useReducer } from '../../src/kinfolk'
 
 const counter = atom(0)
@@ -21,7 +22,9 @@ function Component() {
   const isolated = createContext()
   const decrement = isolated.useReducer(counter, (state) => state - 1)
   decrement()
-  return null
+  const isolatedOnClick: React.MouseEventHandler<HTMLButtonElement> = decrement
+  void isolatedOnClick
+  return <button onClick={increment}>Increment</button>
 }
 
 void Component

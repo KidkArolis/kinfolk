@@ -1,7 +1,10 @@
+import { createElement, type MouseEventHandler } from 'react'
+import { renderToString } from 'react-dom/server'
 import {
   atom,
   selector,
   createStore,
+  Provider,
   useReducer,
   useSelector,
   type Atom,
@@ -19,6 +22,8 @@ store.set(times, 2)
 function Component() {
   const increment = useReducer(count, (state) => state + 1)
   increment()
+  const onClick: MouseEventHandler<HTMLButtonElement> = increment
+  void onClick
   // @ts-expect-error Actionless reducers reject unexpected actions.
   increment('wrong')
   const dispatch = useReducer(count, (state, amount: number) => state + amount)
@@ -68,3 +73,8 @@ function HookForms() {
   return null
 }
 void HookForms
+
+const html: string = renderToString(
+  createElement(Provider, { store }, createElement('span', null, value)),
+)
+void html

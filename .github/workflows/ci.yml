@@ -26,5 +26,5 @@ jobs:
       - run: npm install --no-save --package-lock=false react@${{ matrix.react }} react-dom@${{ matrix.react }}
       - run: npm run check
       - run: npm audit
-      - run: npm pack --dry-run
+      - run: npm run test:package
       - run: npm run examples:build
