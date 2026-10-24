@@ -399,11 +399,20 @@ function shallowEqual(a: unknown, b: unknown) {
 }
 
 function objEqual(a: unknown, b: unknown) {
-  if (!a || !b) return false
   if (!isObject(a) || !isObject(b)) return false
-  for (const k in a) if (!Object.is(a[k], b[k])) return false
-  for (const k in b) if (!(k in a)) return false
-  return true
+  const keys = enumerableKeys(a)
+  if (keys.length !== enumerableKeys(b).length) return false
+  return keys.every(
+    (key) =>
+      Object.prototype.propertyIsEnumerable.call(b, key) &&
+      Object.is(a[key], b[key]),
+  )
+}
+
+function enumerableKeys(value: object) {
+  return Reflect.ownKeys(value).filter((key) =>
+    Object.prototype.propertyIsEnumerable.call(value, key),
+  )
 }
 
 function arrEqual(a: unknown, b: unknown) {
@@ -414,7 +423,7 @@ function arrEqual(a: unknown, b: unknown) {
   return true
 }
 
-function isObject(obj: unknown): obj is Record<string, unknown> {
+function isObject(obj: unknown): obj is Record<PropertyKey, unknown> {
   return (
     typeof obj === 'object' &&
     Object.prototype.toString.call(obj) === '[object Object]'

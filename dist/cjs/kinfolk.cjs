@@ -287,11 +287,17 @@ function shallowEqual(a, b) {
   return Object.is(a, b) || objEqual(a, b) || arrEqual(a, b);
 }
 function objEqual(a, b) {
-  if (!a || !b) return false;
   if (!isObject(a) || !isObject(b)) return false;
-  for (const k in a) if (!Object.is(a[k], b[k])) return false;
-  for (const k in b) if (!(k in a)) return false;
-  return true;
+  const keys = enumerableKeys(a);
+  if (keys.length !== enumerableKeys(b).length) return false;
+  return keys.every(
+    (key) => Object.prototype.propertyIsEnumerable.call(b, key) && Object.is(a[key], b[key])
+  );
+}
+function enumerableKeys(value) {
+  return Reflect.ownKeys(value).filter(
+    (key) => Object.prototype.propertyIsEnumerable.call(value, key)
+  );
 }
 function arrEqual(a, b) {
   if (!a || !b) return false;
