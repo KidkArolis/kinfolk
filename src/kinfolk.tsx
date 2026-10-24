@@ -42,12 +42,7 @@ export interface SelectorOptions<T> extends AtomOptions {
   equal?: (previous: T, next: T) => boolean
   persist?: boolean
 }
-export interface UseSelectorOptions<T> extends Omit<
-  SelectorOptions<T>,
-  'persist'
-> {
-  deps?: DependencyList
-}
+export type UseSelectorOptions<T> = Omit<SelectorOptions<T>, 'persist'>
 export interface ProviderProps {
   store?: Store
   children?: ReactNode
@@ -314,15 +309,23 @@ function useAtomStates(context: KinfolkContext): AtomStates {
   return states
 }
 
+function isDependencyList(value: unknown): value is DependencyList {
+  return Array.isArray(value)
+}
+
 function createUseSelector(KinfolkContext: KinfolkContext) {
-  function useSelector<F extends () => unknown>(
+  return function useSelector<F extends () => unknown>(
     selectorFnOrRef: F,
-    options?: UseSelectorOptions<ReturnType<F>>,
-  ): ReturnType<F>
-  function useSelector<T>(
-    selectorFnOrRef: () => T,
-    { deps, label, equal }: UseSelectorOptions<T> = {},
-  ): T {
+    ...[depsOrOptions, options = {}]:
+      | [options?: UseSelectorOptions<ReturnType<F>>]
+      | [
+          deps: DependencyList | undefined,
+          options?: UseSelectorOptions<ReturnType<F>>,
+        ]
+  ): ReturnType<F> {
+    const hasDeps = isDependencyList(depsOrOptions)
+    const deps = hasDeps ? depsOrOptions : undefined
+    const { label, equal } = hasDeps ? options : (depsOrOptions ?? options)
     const atomStates = useAtomStates(KinfolkContext)
     const isRef = atomMetas.has(selectorFnOrRef)
     const selectorFn = useMemo(
@@ -338,13 +341,12 @@ function createUseSelector(KinfolkContext: KinfolkContext) {
     const { subscribe_, getSnapshot_ } = useMemo(
       () => ({
         subscribe_: (cb: () => void) => subscribe(atomStates, atomRef, cb),
-        getSnapshot_: () => getSnapshot(atomStates, atomRef) as T,
+        getSnapshot_: () => getSnapshot(atomStates, atomRef) as ReturnType<F>,
       }),
       [atomStates, atomRef],
     )
     return useSyncExternalStore(subscribe_, getSnapshot_)
   }
-  return useSelector
 }
 
 function update(

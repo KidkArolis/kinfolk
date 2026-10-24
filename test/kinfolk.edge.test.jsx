@@ -178,7 +178,7 @@ test('changing callback dependencies and reference props refreshes subscriptions
   const hook = renderHook(
     ({ ref, multiplier }) => [
       useSelector(ref),
-      useSelector(() => ref() * multiplier, { deps: [ref, multiplier] }),
+      useSelector(() => ref() * multiplier, [ref, multiplier]),
     ],
     {
       initialProps: { ref: first, multiplier: 2 },
@@ -263,15 +263,12 @@ test('selector families subscribe to the inputs of every cached argument', () =>
   const wrapper = ({ children }) => (
     <Provider store={store}>{children}</Provider>
   )
-  const first = renderHook(() => useSelector(() => family('a'), { deps: [] }), {
+  const first = renderHook(() => useSelector(() => family('a'), []), {
     wrapper,
   })
-  const second = renderHook(
-    () => useSelector(() => family('b'), { deps: [] }),
-    {
-      wrapper,
-    },
-  )
+  const second = renderHook(() => useSelector(() => family('b'), []), {
+    wrapper,
+  })
   act(() => store.set(a, 3))
   expect(first.result.current).toBe(3)
   expect(second.result.current).toBe(2)

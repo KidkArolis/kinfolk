@@ -94,7 +94,7 @@ test('switching dependencies disposes an unused nonpersistent parent', () => {
   const left = selector(() => ({ name: 'left' }), { persist: false })
   const right = selector(() => ({ name: 'right' }), { persist: false })
   const hook = renderHook(
-    () => useSelector(() => (chooseLeft() ? left() : right()), { deps: [] }),
+    () => useSelector(() => (chooseLeft() ? left() : right()), []),
     {
       wrapper: ({ children }) => <Provider store={store}>{children}</Provider>,
     },

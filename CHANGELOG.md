@@ -1,6 +1,6 @@
 # Unreleased
 
-- **Breaking:** `useSelector` now takes one options object as its second argument. Move dependency arrays to `options.deps`; changes to `equal` and `label` now take effect.
+- Allow passing options directly as the second argument to `useSelector`, while keeping dependency-array calls supported. Changes to equality functions and labels now take effect.
 - Providers now follow changes to their `store` prop. Keep supplied stores stable unless you intend to switch state.
 - Infer defaulted and optional selector arguments, and allow reads that return a union of atom value types.
 - Add `store.clearCache` to remove one selector result or all of its cached arguments.

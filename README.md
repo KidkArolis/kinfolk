@@ -59,7 +59,7 @@ function Header() {
 }
 
 function OrderDetails() {
-  const order = useSelector(() => checkout().order, { deps: [] })
+  const order = useSelector(() => checkout().order, [])
   return (
     <div>
       {order.map((item) => (
@@ -70,7 +70,7 @@ function OrderDetails() {
 }
 
 function CardDetails() {
-  const card = useSelector(() => checkout().card, { deps: [] })
+  const card = useSelector(() => checkout().card, [])
   const setCheckout = useSetter(checkout)
   return (
     <input
@@ -122,7 +122,7 @@ A selector can take one argument, with a separate cache entry for each argument.
 const multiple = selector((factor: number) => counter() * factor)
 
 function Total() {
-  const total = useSelector(() => multiple(2) + multiple(3), { deps: [] })
+  const total = useSelector(() => multiple(2) + multiple(3), [])
   return <div>{total}</div>
 }
 ```
@@ -143,23 +143,32 @@ Wrap components using Kinfolk hooks in their context's Provider. Without a `stor
 
 Hooks throw an error outside their matching Provider. Separate Providers have separate state unless they receive the same store.
 
-### `useSelector(selectorFnOrRef, options?)`
+### `useSelector(selectorFnOrRef, dependenciesOrOptions?, options?)`
 
 Reads and subscribes to an atom, a selector whose argument can be omitted, or a callback that reads references. Families with a required argument must be wrapped in a callback that supplies it.
 
 ```tsx
 const count = useSelector(counter)
 const doubled = useSelector(double)
-const multiplied = useSelector(() => multiple(factor), { deps: [factor] })
+const multiplied = useSelector(() => multiple(factor), [factor])
 ```
 
-For callback selectors, list captured component values in `options.deps`, as with `useCallback`. An empty list retains the callback across renders. Omitting the list refreshes it on each render. When passing a reference directly, Kinfolk tracks that reference's identity and ignores `deps`.
+For callback selectors, pass captured component values in a dependency array, as with `useCallback`. An empty list retains the callback across renders. Omitting the list refreshes it on each render. When passing a reference directly, Kinfolk tracks that reference's identity and ignores the dependency array.
 
 The `label` and `equal` options follow `selector` and take effect when they change, including for direct references. The internal hook selector is always nonpersistent and is removed on unsubscribe.
 
 Returning the same selected result avoids a state-driven re-render.
 
-To migrate older calls, replace `useSelector(fn, deps, options)` with `useSelector(fn, { ...options, deps })`.
+All four call forms are supported:
+
+```tsx
+useSelector(fn)
+useSelector(fn, [])
+useSelector(fn, { equal })
+useSelector(fn, [], { equal })
+```
+
+Existing calls with `undefined` as the second argument and options as the third also work.
 
 ### `useSetter(atomRef)`
 

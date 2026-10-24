@@ -1,4 +1,11 @@
-import { atom, selector, createStore, useReducer, type Atom } from 'kinfolk'
+import {
+  atom,
+  selector,
+  createStore,
+  useReducer,
+  useSelector,
+  type Atom,
+} from 'kinfolk'
 const count: Atom<number> = atom(0)
 const times = selector((n: number) => count() * n)
 const store = createStore()
@@ -44,3 +51,20 @@ store.clearCache(defaulted, undefined)
 store.clearCache(count)
 // @ts-expect-error Published cache clearing retains argument types.
 store.clearCache(defaulted, 'wrong')
+
+function HookForms() {
+  const a: number = useSelector(count)
+  const b: number = useSelector(count, [])
+  const c: number = useSelector(count, {
+    equal: (previous, next) => previous.toFixed() === next.toFixed(),
+  })
+  const d: number = useSelector(count, [], {
+    equal: (previous, next) => previous.toFixed() === next.toFixed(),
+  })
+  void a
+  void b
+  void c
+  void d
+  return null
+}
+void HookForms

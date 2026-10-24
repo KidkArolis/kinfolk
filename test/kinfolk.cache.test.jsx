@@ -64,7 +64,7 @@ test('clearing active family caches preserves subscriptions and derived values',
     <Provider store={store}>{children}</Provider>
   )
   const hook = renderHook(
-    () => [useSelector(() => read(2), { deps: [] }), useSelector(derived)],
+    () => [useSelector(() => read(2), []), useSelector(derived)],
     { wrapper },
   )
   expect(hook.result.current).toEqual([{ value: 4 }, 10])

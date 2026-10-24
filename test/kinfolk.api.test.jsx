@@ -12,15 +12,31 @@ import {
 
 afterEach(cleanup)
 
-test.each([false, true])(
-  'selector options update for callback=%s',
-  (callback) => {
+const optionForms = [
+  function useOptions(read, options) {
+    return useSelector(read, options)
+  },
+  function useDepsAndOptions(read, options) {
+    return useSelector(read, [], options)
+  },
+  function useUndefinedAndOptions(read, options) {
+    return useSelector(read, undefined, options)
+  },
+]
+
+test.each(
+  optionForms.flatMap((useRead) =>
+    [false, true].map((callback) => [useRead.name, callback, useRead]),
+  ),
+)(
+  'selector options update with %s for callback=%s',
+  (_name, callback, useRead) => {
     const store = createStore()
     const value = atom({ count: 1, tag: 'a' })
     const read = callback ? () => value() : value
     const sameCount = (a, b) => a.count === b.count
     const hook = renderHook(
-      ({ equal, label }) => useSelector(read, { deps: [], equal, label }),
+      ({ equal, label }) => useRead(read, { equal, label }),
       {
         initialProps: { equal: sameCount, label: 'before' },
         wrapper: ({ children }) => (
