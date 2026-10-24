@@ -141,7 +141,8 @@ export const { Provider, useSelector, useSetter, useReducer } = createContext()
 
 function createProvider(KinfolkContext: KinfolkContext) {
   return function Provider({ store, children }: ProviderProps) {
-    const [{ atomStates }] = useState(() => store || createStore())
+    const [defaultStore] = useState(createStore)
+    const { atomStates } = store ?? defaultStore
     return (
       <KinfolkContext.Provider value={atomStates}>
         {children}

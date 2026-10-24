@@ -129,7 +129,7 @@ function Total() {
 
 ### `Provider`
 
-Wrap components using Kinfolk hooks in their context's Provider. It creates a store unless you supply one. The Provider captures the store on its first render; changing the `store` prop does not replace it. Remount the Provider to switch stores.
+Wrap components using Kinfolk hooks in their context's Provider. Without a `store` prop, it uses its own stable store. Changing the supplied store switches reads, subscriptions, setters, and reducers to that store. Removing the prop restores the Provider's own store.
 
 ```tsx
 <Provider>
