@@ -5,7 +5,6 @@
 - Fix missed updates after remounting components or using selectors with arguments, plus edge cases in value comparisons and debug output.
 - Speed up repeated selector reads and fix a memory leak during rendering.
 - Update dependencies and bring library test coverage to 100%.
-- Run both examples with one install and `npm run examples`. Watch mode now keeps running after TypeScript errors.
 
 # 0.7.4
 
