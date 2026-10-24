@@ -1,3 +1,14 @@
+# Unreleased
+
+- Upgrade dependencies in the library and both examples; remove vulnerable test-tooling dependencies.
+- Use Vitest and V8 coverage, esbuild, Oxlint, and Oxfmt throughout development.
+- Convert the library to strict TypeScript and publish declarations for CommonJS and ESM.
+- Declare React 18/19 peer support and update Node requirements for current development tools.
+- Enforce 100% library coverage and add CI for supported Node and React versions.
+- Fix persisted-selector subscriptions after remount and dependency tracking across selector-family arguments.
+- Fix duplicate falsy and array values in store debug output.
+- Document the API, store lifetime, selector caching, and current limitations.
+
 # 0.7.4
 
 - Upgrade deps to fix security alerts.
