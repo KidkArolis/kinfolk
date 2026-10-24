@@ -36,8 +36,10 @@
     "coverage": "vitest run --coverage",
     "build": "node ./build.js",
     "watch": "node ./build.js -w",
+    "examples": "node examples/run.js",
+    "examples:build": "node examples/run.js --build",
     "typecheck": "tsc --noEmit && tsc -p test/types/tsconfig.json",
-    "check": "npm test && npm run coverage",
+    "check": "npm test -- --coverage",
     "release": "np --no-publish && npm publish",
     "prepack": "npm run build",
     "prepublishOnly": "npm run check"
@@ -63,8 +65,11 @@
   "overrides": {
     "tmp": "^0.2.7"
   },
-  "engines": {
-    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "^22.22.2 || ^24.15.0 || >=26.0.0"
+    }
   },
   "np": {
     "testScript": "check",

@@ -34,5 +34,17 @@ function build() {
   unlinkSync('dist/kinfolk.d.ts')
 }
 
-build()
-if (process.argv.includes('-w')) watch('src', build)
+if (process.argv.includes('-w')) {
+  const rebuild = () => {
+    try {
+      build()
+    } catch (error) {
+      console.error(error.message)
+      console.error('Build failed; waiting for changes.')
+    }
+  }
+  watch('src', rebuild)
+  rebuild()
+} else {
+  build()
+}

@@ -96,7 +96,7 @@ const counter = atom(0)
 const users = atom<{ id: string; name: string }[]>([], { label: 'users' })
 ```
 
-TypeScript infers the value type from the initial value. Supply a type argument for empty arrays or values that will later take another form, such as `atom<string | null>(null)`.
+TypeScript infers the value type from the initial value. Writable atoms keep that exact type, so an `Atom<number>` cannot be widened to `Atom<number | string>` and then written with a string. Supply a type argument for empty arrays or values that will later take another form, such as `atom<string | null>(null)`.
 
 ### `selector(selectorFn, options?)`
 
@@ -244,11 +244,11 @@ If npm publishing fails after `np` succeeds, the version commit and tag have alr
 
 ### Dependency audits
 
-The full dependency audits for the library and both examples are clean. CI requires all three audits to pass, including development dependencies. A `tmp` override keeps the release tool's older editor dependency on a patched version.
+The library and examples share one dependency tree. CI requires `npm audit` to pass, including development dependencies. A `tmp` override keeps the release tool's older editor dependency on a patched version.
 
 ## Development
 
-Use a supported Node.js version and npm.
+Use a supported Node.js version and npm. `devEngines` specifies the Node versions required by the development tools; it does not restrict consumers of the library.
 
 ```sh
 npm ci
@@ -260,16 +260,16 @@ npm run format
 npm audit
 ```
 
-`npm test` checks Oxlint/Oxfmt, builds the library and declarations, checks the source and API type fixtures, and runs the runtime tests. `npm run coverage` enforces 100% statements, branches, functions, and lines for all library source files and writes an HTML report to `coverage/index.html`. `npm run build` writes JavaScript and declarations to `dist/cjs` and `dist/esm`. Watch mode rebuilds when source files change.
+`npm test` checks Oxlint/Oxfmt, builds the library and declarations, checks the source and API type fixtures, and runs the runtime tests. `npm run check` adds coverage to the same test run, so runtime tests run once. `npm run coverage` enforces 100% statements, branches, functions, and lines for all library source files and writes an HTML report to `coverage/index.html`. `npm run build` writes JavaScript and declarations to `dist/cjs` and `dist/esm`. Generated `dist/` files are ignored by Git and rebuilt by `prepack` before packaging. Watch mode rebuilds when source files change. Compiler errors are reported without stopping the watcher; fix the error and save to rebuild.
 
-CI runs these checks on Node 22, 24, and 26 with React 18 and 19. It also audits and builds both examples and checks package contents.
+CI runs these checks on Node 22, 24, and 26 with React 18 and 19. It also runs the dependency audit, builds both examples, and checks package contents.
 
-Each example installs its own dependencies and uses the local library source:
+Both examples use the local library source and the root dependencies. Run these commands from the repository root:
 
 ```sh
-cd examples/example-1 # or examples/example-2
 npm ci
-npm start           # http://localhost:3030
-npm run build
-npm audit
+npm run examples       # http://127.0.0.1:3030
+npm run examples:build # build both examples without starting the server
 ```
+
+You can also start the examples with `node examples/run.js`. Open `/example-1/` or `/example-2/` from the server's index page. Refresh after editing to rebuild. The Node script uses the root esbuild dependency to bundle JSX, TypeScript, React, and CSS for the browser; the example directories need no package manifests or separate installs.
