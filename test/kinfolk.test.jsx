@@ -21,7 +21,7 @@ test('basic atom and selector', () => {
   const double = selector(() => counter() * 2, { label: 'double' })
 
   function App() {
-    const val1 = useSelector(() => counter(), [])
+    const val1 = useSelector(() => counter(), { deps: [] })
     const val2 = useSelector(() => double())
     const setCounter = useSetter(counter)
 
@@ -61,7 +61,7 @@ test('useReducer', () => {
   }
 
   function App() {
-    const val1 = useSelector(() => counter(), [])
+    const val1 = useSelector(() => counter(), { deps: [] })
     const val2 = useSelector(() => double())
     const dispatch = useReducer(counter, count)
 
@@ -135,7 +135,10 @@ test('unmounting unused atoms', () => {
   })
 
   function Counter({ id, atom }) {
-    const val = useSelector(() => atom(), [atom], { label: `component-${id}` })
+    const val = useSelector(() => atom(), {
+      deps: [atom],
+      label: `component-${id}`,
+    })
     return <div className={`content-${id}`}>{val}</div>
   }
 
@@ -295,7 +298,9 @@ test('inline selector', () => {
   }
 
   function Content({ multiplier }) {
-    const val1 = useSelector(() => counter() * multiplier, [multiplier])
+    const val1 = useSelector(() => counter() * multiplier, {
+      deps: [multiplier],
+    })
 
     return (
       <div>
@@ -371,7 +376,7 @@ test('useSelector for reading data cache allows optimal re-renders', () => {
     const renders = useRef(0)
     renders.current += 1
 
-    const item = useSelector(() => cache().items[id], [id])
+    const item = useSelector(() => cache().items[id], { deps: [id] })
 
     return (
       <div className={`item-${id}`}>
@@ -441,8 +446,7 @@ test('useSelector only recomputes if dependencies change', () => {
           return [count(), count(), count()]
         }
       },
-      [id],
-      { label: 'sel-item' + id },
+      { deps: [id], label: 'sel-item' + id },
     )
 
     return (
@@ -491,8 +495,8 @@ test('selector family', () => {
   const times = selector((multi) => counter() * multi, { label: 'times' })
 
   function App() {
-    const double = useSelector(() => times(2), [], { label: 'double' })
-    const triple = useSelector(() => times(3), [], { label: 'triple' })
+    const double = useSelector(() => times(2), { deps: [], label: 'double' })
+    const triple = useSelector(() => times(3), { deps: [], label: 'triple' })
 
     return (
       <div>
@@ -532,8 +536,8 @@ test('updating atoms via store', () => {
   const nth = selector((n) => counter() * n, { label: 'nth' })
 
   function App() {
-    const val1 = useSelector(() => counter(), [], { label: 'val1' })
-    const val2 = useSelector(() => double(), undefined, { label: 'val2' })
+    const val1 = useSelector(() => counter(), { deps: [], label: 'val1' })
+    const val2 = useSelector(() => double(), { label: 'val2' })
     const setCounter = useSetter(counter)
 
     return (
@@ -607,12 +611,14 @@ test('useSelector will memo values using a shallow comparator by default', () =>
     const renders = useRef(0)
     renders.current += 1
 
-    const case1 = useSelector(() => (counter() < 3 ? 'a' : 'b'), [])
+    const case1 = useSelector(() => (counter() < 3 ? 'a' : 'b'), { deps: [] })
     const case2 = useSelector(
       () => (counter() < 3 ? { a: 1, b: 2 } : { a: 1 }),
-      [],
+      { deps: [] },
     )
-    const case3 = useSelector(() => (counter() < 3 ? [1, 2, 3] : [1, 2]), [])
+    const case3 = useSelector(() => (counter() < 3 ? [1, 2, 3] : [1, 2]), {
+      deps: [],
+    })
 
     return (
       <div className='item'>

@@ -35,7 +35,12 @@ export interface SelectorOptions<T> extends AtomOptions {
   equal?: (previous: T, next: T) => boolean
   persist?: boolean
 }
-export type UseSelectorOptions<T> = Omit<SelectorOptions<T>, 'persist'>
+export interface UseSelectorOptions<T> extends Omit<
+  SelectorOptions<T>,
+  'persist'
+> {
+  deps?: DependencyList
+}
 export interface ProviderProps {
   store?: Store
   children?: ReactNode
@@ -301,8 +306,7 @@ function useAtomStates(context: KinfolkContext): AtomStates {
 function createUseSelector(KinfolkContext: KinfolkContext) {
   return function useSelector<T>(
     selectorFnOrRef: () => T,
-    deps?: DependencyList,
-    options: UseSelectorOptions<T> = {},
+    { deps, label, equal }: UseSelectorOptions<T> = {},
   ): T {
     const atomStates = useAtomStates(KinfolkContext)
     const isRef = atomMetas.has(selectorFnOrRef)
@@ -313,10 +317,8 @@ function createUseSelector(KinfolkContext: KinfolkContext) {
       isRef ? [selectorFnOrRef] : (deps ?? [{}]),
     )
     const atomRef = useMemo(
-      () => selector(selectorFn, { ...options, persist: false }),
-      // Options are captured until the selector's dependencies change.
-      // oxlint-disable-next-line react-hooks/exhaustive-deps
-      [selectorFn],
+      () => selector(selectorFn, { label, equal, persist: false }),
+      [selectorFn, label, equal],
     )
     const { subscribe_, getSnapshot_ } = useMemo(
       () => ({

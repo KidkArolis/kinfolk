@@ -34,7 +34,11 @@ void invalid
 function Component() {
   const value: number = useSelector(counter)
   const derived: number = useSelector(double)
-  const family: number = useSelector(() => times(2), [])
+  const family: number = useSelector(() => times(2), { deps: [] })
+  // @ts-expect-error Dependencies belong in the options object.
+  useSelector(counter, [])
+  // @ts-expect-error The legacy third options argument is no longer supported.
+  useSelector(counter, undefined, { equal: Object.is })
   const set = useSetter(counter)
   set((n) => n + value + derived + family)
   // @ts-expect-error Setters preserve the atom's type.

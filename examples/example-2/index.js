@@ -23,7 +23,7 @@ const times = selector((t) => counter() * t)
 const increment = (state) => state + 1
 
 function App() {
-  const shouldShowNesting = useSelector(() => counter() <= 3, [])
+  const shouldShowNesting = useSelector(() => counter() <= 3, { deps: [] })
   return (
     <>
       <Increments />
@@ -34,17 +34,17 @@ function App() {
 
 function Increments() {
   // selecting atom
-  const val = useSelector(() => counter(), [])
+  const val = useSelector(() => counter(), { deps: [] })
 
   // selecting selector
-  const dub = useSelector(() => double(), [])
+  const dub = useSelector(() => double(), { deps: [] })
 
   // selecting selector family
-  const tim4 = useSelector(() => times(4), [])
-  const tim5 = useSelector(() => times(5), [])
+  const tim4 = useSelector(() => times(4), { deps: [] })
+  const tim5 = useSelector(() => times(5), { deps: [] })
 
   // selector with deps
-  const trip = useSelector(() => counter() * 3 + dub, [dub])
+  const trip = useSelector(() => counter() * 3 + dub, { deps: [dub] })
 
   // reducer
   const inc = useReducer(counter, increment)
