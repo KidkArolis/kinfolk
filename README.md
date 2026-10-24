@@ -85,7 +85,7 @@ Creates a synchronous derived value. Kinfolk records atoms and selectors read du
 Options:
 
 - `label` names the selector in `store.debug()`.
-- `equal(previous, next)` determines whether to reuse the previous result. The default comparator compares primitive values and shallowly compares objects and arrays. It does not deeply compare nested values, Dates, or Maps.
+- `equal(previous, next)` determines whether to reuse the previous result. The default comparator uses `Object.is` for primitive values and shallow object/array entries. `NaN` equals itself, while `0` and `-0` differ. Object comparisons include own enumerable string and symbol keys, and distinguish a missing key from a key with an `undefined` value. Inherited and nonenumerable properties are ignored. It does not deeply compare nested values, Dates, or Maps.
 - `persist` defaults to `true`. Set it to `false` to discard the selector state when its last listener and dependent selector are removed.
 
 ```ts
@@ -163,6 +163,13 @@ dispatch('inc')
 dispatch('dec')
 ```
 
+Reducers without an action parameter produce a dispatch function that takes no arguments:
+
+```tsx
+const increment = useReducer(counter, (state) => state + 1)
+increment()
+```
+
 ## Stores and isolated contexts
 
 ### `createStore()`
@@ -178,6 +185,8 @@ store.set(counter, (current) => current + 1)
 ```
 
 `store.debug()` returns the values of initialized atoms keyed by label. Its `__selectors` property contains selector memoization Maps keyed by selector label. Each Map entry has a `value` and tracked `inputs`. Duplicate labels produce an array of values or Maps. Generated labels are for debugging and can change. Reserve `__selectors` for the debug output.
+
+Nonpersistent selectors appear in the debug registry only while subscribed or used by an active selector. Discarded renders do not retain these selectors in the registry. Registry iteration order is not guaranteed.
 
 The exposed `atomStates`, `atomMetas`, and memoization details are debugging internals, not a stable API. A TypeScript `Store` type is exported, along with `Atom`, `Selector`, `Update`, `AtomOptions`, `SelectorOptions`, `UseSelectorOptions`, and `ProviderProps`.
 

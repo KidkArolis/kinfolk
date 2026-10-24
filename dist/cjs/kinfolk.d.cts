@@ -61,7 +61,9 @@ type SelectorState = CommonState & SelectorMeta & {
     memo: Map<unknown, Memo>;
 };
 type State = AtomState | SelectorState;
-type AtomStates = Map<Ref, State>;
+declare class AtomStates extends Map<Ref, State> {
+    readonly pending: WeakMap<Ref, SelectorState>;
+}
 export interface Store {
     /** Internal maps exposed for debugging, not a stable public API. */
     atomMetas: WeakMap<object, Meta>;
@@ -79,9 +81,9 @@ export declare function createContext(): {
     Provider: ({ store, children }: ProviderProps) => React.JSX.Element;
     useSelector: <T>(selectorFnOrRef: () => T, deps?: DependencyList, options?: UseSelectorOptions<T>) => T;
     useSetter: <T>(atomRef: Atom<T>) => (action: Update<T>) => void;
-    useReducer: <T, A>(atomRef: Atom<T>, reducer: (state: T, action: A) => T) => (action: A) => void;
+    useReducer: <T, A = void>(atomRef: Atom<T>, reducer: (state: T, action: A) => T) => (action: A) => void;
 };
-export declare const Provider: ({ store, children }: ProviderProps) => React.JSX.Element, useSelector: <T>(selectorFnOrRef: () => T, deps?: DependencyList, options?: UseSelectorOptions<T>) => T, useSetter: <T>(atomRef: Atom<T>) => (action: Update<T>) => void, useReducer: <T, A>(atomRef: Atom<T>, reducer: (state: T, action: A) => T) => (action: A) => void;
+export declare const Provider: ({ store, children }: ProviderProps) => React.JSX.Element, useSelector: <T>(selectorFnOrRef: () => T, deps?: DependencyList, options?: UseSelectorOptions<T>) => T, useSetter: <T>(atomRef: Atom<T>) => (action: Update<T>) => void, useReducer: <T, A = void>(atomRef: Atom<T>, reducer: (state: T, action: A) => T) => (action: A) => void;
 export declare function atom<T>(initialState: T, { label }?: AtomOptions): Atom<T>;
 export declare function selector<T, A = void>(selectorFn: (arg: A) => T, { label, equal, persist }?: SelectorOptions<T>): Selector<T, A>;
 export declare function createStore(): Store;

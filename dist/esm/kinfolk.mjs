@@ -1,3 +1,6 @@
+var __defProp = Object.defineProperty;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 import React, {
   createContext as createReactContext,
   useState,
@@ -8,6 +11,12 @@ import React, {
 } from "react";
 const atomType = /* @__PURE__ */ Symbol("atom");
 const selectorType = /* @__PURE__ */ Symbol("selector");
+class AtomStates extends Map {
+  constructor() {
+    super(...arguments);
+    __publicField(this, "pending", /* @__PURE__ */ new WeakMap());
+  }
+}
 const atomMetas = /* @__PURE__ */ new WeakMap();
 let atomLabel = 0;
 let selectorLabel = 0;
@@ -23,14 +32,9 @@ function withGetter(get, fn) {
     currentGet = previousGet;
   }
 }
-function evaluateSelectorFn(atomStates, atomRef, atom2, arg) {
-  for (const parentAtomRef of atom2.parents) {
-    getAtom(atomStates, parentAtomRef).children.delete(atomRef);
-  }
-  atom2.parents.clear();
+function evaluateSelectorFn(atomStates, atom2, arg) {
   const inputs = [];
   const get = (parentAtomRef, arg2) => {
-    atom2.parents.add(parentAtomRef);
     const value2 = getSnapshot(atomStates, parentAtomRef, arg2);
     inputs.push({ atomRef: parentAtomRef, arg: arg2, value: value2 });
     return value2;
@@ -79,7 +83,7 @@ function selector(selectorFn, { label, equal, persist = true } = {}) {
   return selectorRef;
 }
 function getAtom(atomStates, atomRef) {
-  const existing = atomStates.get(atomRef);
+  const existing = atomStates.get(atomRef) || atomStates.pending.get(atomRef);
   if (existing) return existing;
   const meta = atomMetas.get(atomRef);
   if (!meta) throw new Error("Expected a Kinfolk atom or selector");
@@ -90,13 +94,18 @@ function getAtom(atomStates, atomRef) {
     label: atomRef.label || (meta.kind === "selector" ? `selector${++selectorLabel}` : `atom${++atomLabel}`)
   };
   const state = meta.kind === "atom" ? { ...common, kind: "atom", state: meta.initialState } : { ...common, ...meta, memo: /* @__PURE__ */ new Map() };
-  atomStates.set(atomRef, state);
+  if (state.kind === "selector" && !state.persist)
+    atomStates.pending.set(atomRef, state);
+  else atomStates.set(atomRef, state);
   return state;
 }
 function dispose(atomStates, atomRef) {
   const atom2 = getAtom(atomStates, atomRef);
   if (atom2.kind === "selector" && atom2.listeners.size === 0 && atom2.children.size === 0) {
-    if (!atom2.persist) atomStates.delete(atomRef);
+    if (!atom2.persist) {
+      atomStates.delete(atomRef);
+      atomStates.pending.delete(atomRef);
+    }
     for (const parentAtomRef of atom2.parents) {
       getAtom(atomStates, parentAtomRef).children.delete(atomRef);
       dispose(atomStates, parentAtomRef);
@@ -111,32 +120,40 @@ function getSnapshot(atomStates, atomRef, arg) {
     connectParents(atomStates, atomRef, atom2);
     return memo.value;
   }
-  const next = evaluateSelectorFn(atomStates, atomRef, atom2, arg);
+  const next = evaluateSelectorFn(atomStates, atom2, arg);
   if (memo && atom2.equal(memo.value, next.value)) next.value = memo.value;
   atom2.memo.set(arg, next);
   connectParents(atomStates, atomRef, atom2);
   return next.value;
 }
 function connectParents(atomStates, atomRef, atom2) {
-  const active = atom2.listeners.size > 0 || atom2.children.size > 0;
-  for (const parentRef of atom2.parents)
-    getAtom(atomStates, parentRef).children.delete(atomRef);
-  atom2.parents.clear();
+  const parents = /* @__PURE__ */ new Set();
   for (const { inputs } of atom2.memo.values()) {
-    for (const { atomRef: parentRef } of inputs) {
-      atom2.parents.add(parentRef);
-      if (active) {
-        const parent = getAtom(atomStates, parentRef);
-        parent.children.add(atomRef);
-        if (parent.kind === "selector")
-          connectParents(atomStates, parentRef, parent);
-      }
+    for (const { atomRef: parentRef } of inputs) parents.add(parentRef);
+  }
+  for (const parentRef of atom2.parents) {
+    if (!parents.has(parentRef)) {
+      getAtom(atomStates, parentRef).children.delete(atomRef);
+      dispose(atomStates, parentRef);
+    }
+  }
+  atom2.parents = parents;
+  if (atom2.listeners.size > 0 || atom2.children.size > 0) {
+    atomStates.set(atomRef, atom2);
+    for (const parentRef of parents) {
+      const parent = getAtom(atomStates, parentRef);
+      parent.children.add(atomRef);
+      if (parent.kind === "selector")
+        connectParents(atomStates, parentRef, parent);
     }
   }
 }
 function isDirty(atomStates, inputs) {
   return inputs.some(
-    (input) => getSnapshot(atomStates, input.atomRef, input.arg) !== input.value
+    (input) => !Object.is(
+      getSnapshot(atomStates, input.atomRef, input.arg),
+      input.value
+    )
   );
 }
 function notify(atomStates, atomRef) {
@@ -190,7 +207,7 @@ function update(atomStates, atomRef, updater) {
   if (atom2.kind === "selector") throw new Error("Only atoms can be updated");
   const curr = atom2.state;
   atom2.state = updater(atom2.state);
-  if (curr !== atom2.state) notify(atomStates, atomRef);
+  if (!Object.is(curr, atom2.state)) notify(atomStates, atomRef);
 }
 function createUseReducer(KinfolkContext) {
   return function useReducer2(atomRef, reducer) {
@@ -213,7 +230,7 @@ function setReducer(state, update2) {
   return typeof update2 === "function" ? update2(state) : update2;
 }
 function createStore() {
-  const atomStates = /* @__PURE__ */ new Map();
+  const atomStates = new AtomStates();
   return {
     atomMetas,
     atomStates,
@@ -252,18 +269,23 @@ function shallowEqual(a, b) {
   return Object.is(a, b) || objEqual(a, b) || arrEqual(a, b);
 }
 function objEqual(a, b) {
-  if (a === b) return true;
-  if (!a || !b) return false;
   if (!isObject(a) || !isObject(b)) return false;
-  for (const k in a) if (a[k] !== b[k]) return false;
-  for (const k in b) if (!(k in a)) return false;
-  return true;
+  const keys = enumerableKeys(a);
+  if (keys.length !== enumerableKeys(b).length) return false;
+  return keys.every(
+    (key) => Object.prototype.propertyIsEnumerable.call(b, key) && Object.is(a[key], b[key])
+  );
+}
+function enumerableKeys(value) {
+  return Reflect.ownKeys(value).filter(
+    (key) => Object.prototype.propertyIsEnumerable.call(value, key)
+  );
 }
 function arrEqual(a, b) {
   if (!a || !b) return false;
   if (!Array.isArray(a) || !Array.isArray(b)) return false;
   if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  for (let i = 0; i < a.length; i++) if (!Object.is(a[i], b[i])) return false;
   return true;
 }
 function isObject(obj) {

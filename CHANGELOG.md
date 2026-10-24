@@ -1,5 +1,10 @@
 # Unreleased
 
+- Avoid retaining nonpersistent selectors from suspended or discarded React renders, and dispose unused dynamic dependencies.
+- Compare atom and selector values consistently with `Object.is`, including `NaN` and signed zero.
+- Compare own enumerable string and symbol keys in shallow object results.
+- Restore TypeScript inference for actionless reducer dispatch functions.
+
 - Release through `np --no-publish && npm publish` with package-build and full-check lifecycle hooks.
 
 - Upgrade dependencies in the library and both examples; remove vulnerable test-tooling dependencies.
