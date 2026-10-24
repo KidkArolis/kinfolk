@@ -1,20 +1,37 @@
-const { mkdirSync, readFileSync, writeFileSync, watch } = require('node:fs')
+const {
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  unlinkSync,
+  watch,
+} = require('node:fs')
+const { execFileSync } = require('node:child_process')
 const { transformSync } = require('esbuild')
 
 function build() {
-  const source = readFileSync('src/kinfolk.jsx', 'utf8')
+  execFileSync(
+    process.execPath,
+    ['node_modules/typescript/bin/tsc', '--emitDeclarationOnly'],
+    { stdio: 'inherit' },
+  )
+  const source = readFileSync('src/kinfolk.tsx', 'utf8')
   for (const [format, file] of [
     ['esm', 'dist/esm/kinfolk.mjs'],
     ['cjs', 'dist/cjs/kinfolk.cjs'],
   ]) {
     mkdirSync(`dist/${format}`, { recursive: true })
     const { code } = transformSync(source, {
-      loader: 'jsx',
+      loader: 'tsx',
       format,
       target: 'es2020',
     })
     writeFileSync(file, code)
+    writeFileSync(
+      file.replace(/\.(mjs|cjs)$/, format === 'esm' ? '.d.mts' : '.d.cts'),
+      readFileSync('dist/kinfolk.d.ts'),
+    )
   }
+  unlinkSync('dist/kinfolk.d.ts')
 }
 
 build()
